@@ -44,9 +44,9 @@ app.use(async (ctx, next) => {
     await next();
 })
 
-if (!isProduction) {
+//if (!isProduction) {
     app.use(mount('/static', serve('static')));
-}
+//}
 
 //解析request.body:
 app.use(bodyParser());
