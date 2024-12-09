@@ -1,8 +1,26 @@
 import { Sequelize, DataTypes } from "sequelize";
 
+let sqlConfig = {
+    host: 'localhost',
+    user: 'root',
+    password: '54285123fox',
+    database: 'webapp',
+    port: 3306
+}
+
+if (process.env.NODE_ENV !== 'production') {
+    sqlConfig = {
+        host: '139.224.44.26',
+        user: 'root',
+        password: '54285123fox',
+        database: 'webapp',
+        port: 3306
+    }
+}
+
 export const sequelize = new Sequelize('webapp', 'root', '54285123fox', {
     dialect: 'mysql',
-    host: '139.224.44.26',
+    host: sqlConfig.host,
     port: 3306,
 })
 
