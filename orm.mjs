@@ -32,3 +32,36 @@ export const User = sequelize.define('User', {
     //指定表名
     tableName: 'user'
 });
+
+export const Articles = sequelize.define('Articles', {
+    //每一列的定义
+    id: {
+        primaryKey: true,
+        autoIncrement: true,
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    title: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    pageId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    abbr: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    tags: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    classify: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+    }
+}, {
+    //指定表名
+    tableName: 'articles'
+});

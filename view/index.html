@@ -24,21 +24,12 @@
         <article id="article-list">
             <div id="alist-title"><h1><a href="article" title="文章">文</a></h1></div>
             <a href="article" class="alist-more">More</a>
-
+            {% for item in articles %}
             <section class="a-title">
-                <h1><a href="article/201710220">JVM</a></h1>
-                <time datetime="2017-10-22">2017-10-22</time>
+                <h1><a href="article/201710220">{{item.title}}</a></h1>
+                <time datetime="2017-10-22">{{item.createdAt}}</time>
             </section>
-
-            <section class="a-title">
-                <h1><a href="article/201710210">从MVC到SHH</a></h1>
-                <time datetime="2017-10-21">2017-10-21</time>
-            </section>
-
-            <section class="a-title">
-                <h1><a href="article/201710190">面向对象编程</a></h1>
-                <time datetime="2017-10-19">2017-10-19</time>
-            </section>
+            {% endfor %}
 
         </article>
     </div><!-- div.content-wrapper -->
