@@ -9,6 +9,7 @@ export const sequelize = new Sequelize('webapp', dbuser, dbpass, {
     dialect: 'mysql',
     host: host,
     port: 3306,
+    timezone: '+08:00'
 })
 
 //定义User

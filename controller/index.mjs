@@ -1,4 +1,4 @@
-import * as utility from 'utility';
+import * as utils from 'utility';
 import { Articles } from '../orm.mjs';
 
 async function index(ctx, next) {
@@ -7,7 +7,7 @@ async function index(ctx, next) {
         limit: 8
     });
     articles.forEach(item => {
-        item.setDataValue('createdAt', utility.YYYYMMDDHHmmss(item.createdAt));
+        item.setDataValue('createdAt', utils.YYYYMMDDHHmmss(item.createdAt));
     })
     ctx.render('index.html', {
         articles: articles
