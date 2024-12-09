@@ -1,12 +1,8 @@
 import { Sequelize, DataTypes } from "sequelize";
-import { MysqlDialect } from '@sequelize/mysql'
 
-export const sequelize = new Sequelize({
-    dialect: MysqlDialect,
-    database: 'webapp',
-    user: 'root',
-    password: '54285123fox',
-    host: 'localhost',
+export const sequelize = new Sequelize('webapp', 'root', '54285123fox', {
+    dialect: 'mysql',
+    host: '139.224.44.26',
     port: 3306,
 })
 
