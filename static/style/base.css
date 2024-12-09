@@ -62,7 +62,7 @@ legend {
   
 .content-wrapper {
     width: 960px;
-    margin: 0 auto;
+    margin: 53px auto 0;
 }
   
 .top-fixed {
@@ -114,6 +114,7 @@ legend {
 }
   
 .bottom-footer {
+    clear: both;
     height: 40px;
     line-height: 40px;
     background-color: #499e8d;
@@ -147,4 +148,8 @@ legend {
 .pages .cur {
     color: #5e5e5e;
     font-size: 18px;
+}
+
+.container {
+    margin: 40px auto;
 }

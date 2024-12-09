@@ -1,5 +1,16 @@
 import { User } from '../orm.mjs'
 
+//GET /login
+async function login(ctx, next) {
+    if (!ctx.session.logged) {
+        ctx.render('login.html', {
+        
+        });
+    } else {
+        ctx.response.redirect('/');
+    }
+}
+
 //POST /signin
 async function signin(ctx, next) {
     let name = ctx.request.body.name || '';
@@ -12,15 +23,16 @@ async function signin(ctx, next) {
         }
     });
     if (name === 'lily' && password === '123456') {
-        ctx.response.type = 'text/html';
-        ctx.response.body = `<h1>Welcome, ${name}!</h1>`;
+        ctx.session.logged = true;
+        ctx.response.redirect('/');
     } else {
         ctx.response.type = 'text/html';
-        ctx.response.body = '<h1>Signin failed!</h1><p><a href="/">Retry</a></p>';
+        ctx.response.body = '<h1>Signin failed!</h1><p><a href="/login">Retry</a></p>';
     }
 }
 
 //导出处理函数
 export default {
+    'GET /login': login,
     'POST /signin': signin
 }
