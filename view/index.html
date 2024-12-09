@@ -1,30 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Lilith - 个人主页</title>
-    <meta name="keywords" content="个人主页,个人网站,设计,生活" />
-    <meta name="description" content="展示、记录、收集学习和生活中的美好的点滴。" />
-    <meta name="author" content="Lily_Vain" />
-    <link rel="Shortcut Icon" href="liv.ico" />
-    <link href="/static/style/index.css" rel="stylesheet" type="text/css" media="screen">
-</head>
-<body>
-
-<footer class="top-fixed">
-    <div class="top-content clearfix">
-        <div class="top-logo">
-            <a href="#" class="logo-pic">Lilith</a>
-        </div>
-        <div class="top-links">
-            <span>常用链接：</span>
-            <ul class="line"></ul>
-                <!--<li><a href="http://backup.se.sjtu.edu.cn/elearning/login.asp" title="e-Learning platform" target="_blank">e-l</a></li>-->
-            </ul>
-        </div>
-    </div>
-</footer>
-
+{% extends "base.html" %}
+{% block main %}
 <div class="main-container">
     <div id="up-area">
         <div id="upArea-content">
@@ -66,24 +41,6 @@
             </section>
 
         </article>
-
-
-        <article id="work-list">
-            <h1 id="work-title"><a href="works" title="作品">工</a></h1>
-            <a href="works" class="alist-more">More</a>
-        </article>
-
     </div><!-- div.content-wrapper -->
 </div><!-- div.main-container -->
-
-
-
-<footer class="bottom-footer">
-    <ul class="line">
-        <li>Copyright &copy; 2012-2024</li>
-        <li><a href="">联系我</a></li>
-    </ul>
-</footer>
-
-</body>
-</html>
+{% endblock %}

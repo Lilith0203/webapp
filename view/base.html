@@ -1,48 +1,38 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="description" content="">
-    <title>{{ title }}</title>
-    <link rel="icon" type="image/x-icon" href="liv.ico">
+    <meta charset="UTF-8">
+    <title>Lilith - 个人主页</title>
+    <meta name="keywords" content="个人主页,个人网站,设计,生活" />
+    <meta name="description" content="展示、记录、收集学习和生活中的美好的点滴。" />
+    <meta name="author" content="Lily_Vain" />
+    <link rel="Shortcut Icon" href="/view/liv.ico" />
+    <link href="/static/style/index.css" rel="stylesheet" type="text/css" media="screen">
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-lg">
-        <div class="container">
-            <a class="navbar-brand" href="/">Home</a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link" target="_blank"
-                            href="">JavaScript</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" target="_blank"
-                            href="">Python</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" target="_blank"
-                            href="">Java</a>
-                    </li>
+    <footer class="top-fixed">
+        <div class="top-content clearfix">
+            <div class="top-logo">
+                <a href="#" class="logo-pic">Lilith</a>
+            </div>
+            <div class="top-links">
+                <span>常用链接：</span>
+                <ul class="line"></ul>
+                    <!--<li><a href="http://backup.se.sjtu.edu.cn/elearning/login.asp" title="e-Learning platform" target="_blank">e-l</a></li>-->
                 </ul>
             </div>
         </div>
-    </nav>
-    <div id="important" style="background-color:#8450d9;" class="pt-5 pb-5 mb-4">
-        <div class="container">
-            <h1 class="text-white">Getting started</h1>
-            <h4 class="text-white">Learn JavaScript, Node.js, etc.</h4>
-        </div>
-    </div>
+    </footer>
+    
     {% block main %} {% endblock %}
-    <footer style="background-color:#eee;" class="mt-4 pt-4 pb-4">
+    <footer class="bottom-footer">
         <div class="container">
-            <p>
-                <a target="_blank" href="https://github.com/Lilith0203/">GitHub</a> -
-            </p>
+            <ul class="line">
+                <li>Copyright &copy; 2012-2024</li>
+                <li><a href="">联系我</a></li>
+                <li><a target="_blank" href="https://github.com/Lilith0203/">GitHub</a></li>
+            </ul>
         </div>
     </footer>
 </body>
