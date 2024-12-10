@@ -3,7 +3,8 @@ import { Articles } from '../orm.mjs';
 
 async function index(ctx, next) {
     let articles = await Articles.findAll({
-        order: [['updatedAt', 'DESC']],
+        attributes: ['id', 'title', 'createdAt'],
+        order: [['createdAt', 'DESC']],
         limit: 8
     });
     articles.forEach(item => {

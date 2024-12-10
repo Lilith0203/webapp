@@ -26,11 +26,11 @@
             <a href="article" class="alist-more">More</a>
             {% for item in articles %}
             <section class="a-title">
-                <h1><a href="article/201710220">{{item.title}}</a></h1>
-                <time datetime="2017-10-22">{{item.createdAt}}</time>
+                <h1><a href="article/{{item.id}}">{{item.title}}</a></h1>
+                <time datetime="{{item.createdAt}}">{{item.createdAt}}</time>
             </section>
             {% endfor %}
-
+            <section class="a-title"><h1><a href="article">更多...</a></h1></section>
         </article>
     </div><!-- div.content-wrapper -->
 </div><!-- div.main-container -->

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block main %}
+<div class="main-container">
+    <div class="content-wrapper clearfix">
+        <div class="articles-header">
+            <hgroup>
+                <h1>Lily's Lily</h1>
+                <!-- <h2>——我的文章</h2> -->
+            </hgroup>
+        </div>
+        <div class="list-wrapper">
+            
+            <article class="a-complete">
+                <time datetime="2015-10-22">
+                    <span class="time-date">12.05</span><br/>
+                    <span>Dec.</span><br/>
+                    <span>2014</span>
+                </time>
+                <div class="a-detail">
+                    <div class="a-label">Tag: &nbsp;<span>{{article.tags}}</span></div>
+                    <h1 class="a-title">{{article.title}}</h1>
+                    <div class="a-text">
+                        {{article.content}}
+                    </div><!--div.a-text -->
+                </div>
+            </article>
+
+            <!-- 显示文章评论 -->
+            <section class="a-comment">
+                <h1 class="comment-title">最新评论.</h1>
+                <p></p>
+
+
+                <article class="comment-single">
+                    <p class="comm-name">From: <span>测试</span></p>
+                    <time datetime="2015-10-30 17:32:35">2015-10-30 17:32:35</time>
+                    <p class="comm-text">test</p>
+
+                </article>
+
+
+                <!-- 实现发表评论界面 -->
+                <form action="" method="post" class="comm-form">
+                    <fieldset>
+                        <legend>发表评论</legend>
+                        <input name="action" value="review" type="hidden">
+                        <input name="rootId" value="26" type="hidden">
+                        <label for="revname">Name:</label>
+                        <input id="revname" name="revName" type="text" placeholder="昵称请不要多于10个字">
+                        <textarea name="artRContent" class="artRContent"></textarea>
+                        <input value="发表评论" type="submit" class="comm-submit">
+                    </fieldset>
+                </form>
+            </section>
+        </div><!-- div.list-wrapper -->
+
+        <aside>
+            <section>
+                <h1><span>导航</span></h1>
+                <ul>
+                    <li class="cata-single"><a href="/">首页</a></li>
+                    <li class="cata-single"><a href="/article">文章</a></li>
+                    <li class="cata-single"><a href="/works">作品</a></li>
+                </ul>
+            </section>
+            <section>
+                <h1><span>分类</span></h1>
+                <ul>
+                    <li class="cata-single"><a href="">编程</a></li>
+                    <li class="cata-single"><a href="">手工</a></li>
+                    <li class="cata-single"><a href="">绘画</a></li>
+                </ul>
+            </section>
+        </aside>
+    </div><!-- div.content-wrapper -->
+</div><!-- div.main-container -->
+{% endblock %}

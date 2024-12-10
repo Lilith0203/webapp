@@ -1,0 +1,129 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>test</title>
+<meta charset="utf-8" />
+<script src="web\javascript\jQuery v1.7.2.js"></script>
+<style type="text/css">
+body{
+	margin: 0;
+}
+
+#offsetSon{
+     width: 400px;
+     height: 100px;
+     background-color: #DBEAF9;
+     padding: 10px;
+     border: 2px solid #2E72C7;
+     margin: 20px;
+}
+#offsetParent{
+     width: 600px;
+     padding: 30px;
+     border: 3px solid #4B7700;
+     margin: 40px;
+     background-color: #B0C781;
+}
+
+</style>
+</head>
+<body>
+	<div id="offsetParent">
+		<div id="offsetSon">width: 400px;  height: 100px;<br/>
+               padding: 10px;  border-size: 2px;  margin: 20px;</div>
+          <p>width: 600px;  padding: 30px;  border-size: 3px;  margin: 40px;</p>
+	</div>
+	<input type="button" onclick="getOffsetDimensions()" value="Get Element Offset Dimensions">
+     <input type="button" onclick="addPosition()" value="Set offsetParent">
+     <input type="button" onclick="getElementLeft()" value="getElementLeft()"><br/>
+     <input type="button" onclick="alert(document.documentElement.clientHeight)" value="get clientHeight">
+     <input type="button" onclick="alert(document.documentElement.scrollHeight)" value="get scrollHeight"><br/>
+     <input type="button" onclick="getDimensions()" value="get Dimension">
+     <input type="button" onclick="getDimensions2()" value="get Dimension 2">
+<script>
+     function getOffsetDimensions(){
+          var son = document.getElementById("offsetSon");
+          alert("蓝色元素的 offsetParent 是：" + son.offsetParent);
+          alert("offsetWidth：" + son.offsetWidth + "\noffsetLeft：" + son.offsetLeft);
+     }
+     function addPosition(){
+          document.getElementById("offsetParent").style.cssText = "position: relative;";
+     }
+     function getElementLeft(){
+          var element = document.getElementById("offsetSon");
+          var actualLeft = element.offsetLeft;
+          var current = element.offsetParent;
+          while (current !== null){
+               actualLeft += current.offsetLeft;
+               current = current.offsetParent;
+          }
+          alert(actualLeft);
+     }
+     function getElementLeft2(element){
+          var actualLeft = element.offsetLeft;
+          var current = element.offsetParent;
+          while (current !== null){
+               actualLeft += current.offsetLeft;
+               current = current.offsetParent;
+          }
+          return actualLeft;
+     }
+     function getElementTop(element){
+          var actualTop = element.offsetTop;
+          var current = element.offsetParent;
+          while (current !== null){
+               actualTop += current.offsetTop;
+               current = current.offsetParent;
+          }
+          return actualTop;
+     }
+     function getBoundingClientRect(element){
+     if (typeof arguments.callee.offset != "number"){
+          var scrollTop = document.documentElement.scrollTop;
+          var temp = document.createElement("div");
+          temp.style.cssText = "position:absolute;left:0;top:0;";
+          document.body.appendChild(temp);
+          arguments.callee.offset = -temp.getBoundingClientRect().top - scrollTop;
+          alert("scrollTop 值为：" + scrollTop + "\noffset值为：" + arguments.callee.offset);
+          document.body.removeChild(temp);
+          temp = null;
+     }
+     var rect = element.getBoundingClientRect();
+     var offset = arguments.callee.offset;
+     return {
+          left: rect.left + offset,
+          right: rect.right + offset,
+          top: rect.top + offset,
+          bottom: rect.bottom + offset
+     };
+}
+function getBoundingClientRect2(element){
+     var scrollTop = document.documentElement.scrollTop;
+     var scrollLeft = document.documentElement.scrollLeft;
+     var actualLeft = getElementLeft2(element);
+     var actualTop = getElementTop(element);
+     return {
+          left: actualLeft - scrollLeft,
+          right: actualLeft + element.offsetWidth - scrollLeft,
+          top: actualTop - scrollTop,
+          bottom: actualTop + element.offsetHeight - scrollTop
+     }
+}
+function getDimensions(){
+     var element = document.getElementById("offsetParent");
+     var rect1 = element.getBoundingClientRect();
+     alert("修改前的getBoundingClientRect()方法返回值：\n" + "top: " + rect1.top + ", left: " + rect1.left + ", right: " + rect1.right + ", bottom: " + rect1.bottom);
+     var rect2= getBoundingClientRect(element);
+     alert("修改后的getBoundingClientRect()方法返回值：\n" + "top: " + rect2.top + ", left: " + rect2.left + ", right: " + rect2.right + ", bottom: " + rect2.bottom);
+}
+function getDimensions2(){
+     var element = document.getElementById("offsetSon");
+     var rect1 = getBoundingClientRect(element);
+     alert("修改前的getBoundingClientRect()方法返回值：\n" + "top: " + rect1.top + ", left: " + rect1.left + ", right: " + rect1.right + ", bottom: " + rect1.bottom);
+     var rect2= getBoundingClientRect2(element);
+     alert("修改后的getBoundingClientRect()方法返回值：\n" + "top: " + rect2.top + ", left: " + rect2.left + ", right: " + rect2.right + ", bottom: " + rect2.bottom);
+}
+</script>
+</body>
+</html>

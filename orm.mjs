@@ -46,12 +46,12 @@ export const Articles = sequelize.define('Articles', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    pageId: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-    },
     abbr: {
         type: DataTypes.STRING,
+        allowNull: true
+    },
+    content: {
+        type: DataTypes.TEXT,
         allowNull: true
     },
     tags: {
@@ -61,6 +61,11 @@ export const Articles = sequelize.define('Articles', {
     classify: {
         type: DataTypes.INTEGER,
         allowNull: true
+    },
+    isDeleted: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
     }
 }, {
     //指定表名

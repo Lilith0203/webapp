@@ -1,6 +1,6 @@
 import nunjucks from 'nunjucks';
 
-function createEnv(path, {autoescape = true, noCache = false, watch = false, throwOnUndefined = false}, filters = {}) {
+function createEnv(path, {autoescape = false, noCache = false, watch = false, throwOnUndefined = false}, filters = {}) {
     const loader = new nunjucks.FileSystemLoader(path, {
         noCache: noCache,
         watch: watch
