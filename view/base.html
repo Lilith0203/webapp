@@ -9,6 +9,7 @@
     <link rel="Shortcut Icon" href="/static/images/liv.ico" />
     <link href="/static/style/index.css" rel="stylesheet" type="text/css" media="screen">
     <link href="/static/style/article.css" rel="stylesheet" type="text/css" media="screen">
+    <script src="static/script/lib/modernizr.custom.js"></script>
 </head>
 
 <body>
@@ -36,6 +37,16 @@
             </ul>
         </div>
     </footer>
+    <script src="static/script/lib/sea.js"></script>
+    <script>
+        seajs.config({
+            paths: './static/script/lib/',
+            alias:{
+                "util": "util"
+            }
+        });
+        seajs.use("./static/script/dist/main");
+    </script>
 </body>
 
 </html>
