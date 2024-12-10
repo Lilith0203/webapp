@@ -8,8 +8,9 @@ body {
 }
 
 .articles-header {
-  margin-bottom: 24px;
-  width: 400px;
+    margin-left: 10px;
+  margin-bottom: 70px;
+  width: 60%;
   color: #323232;
   padding-top: 1px;
 }
@@ -18,6 +19,7 @@ body {
   height: 50px;
   margin-top: 30px;
   background: transparent url(/static/images/article-logo.png) no-repeat;
+  background-size: 100%;
   font-size: 0;
 }
 
@@ -37,8 +39,9 @@ body {
 
 #all-info {
   color: #323232;
-  font-size: 16px;
+  font-size: 14px;
   margin-top: 18px;
+  display: none;
 }
 
 #all-info a {
@@ -48,13 +51,11 @@ body {
 }
 
 .list-wrapper {
-  width: 720px;
-  float: left;
+  width: 100%;
 }
 
 .a-brief, .a-complete, .w-complete {
-  width: 100%;
-  height: 160px;
+  height: 230px;
   overflow: hidden;
   margin-bottom: 25px;
   border-bottom: 1px dashed #e4e4e4;
@@ -71,6 +72,7 @@ body {
   text-align: center;
   font-size: 12px;
   font-weight: bold;
+  margin: 0 10px;
 }
 
 .a-brief .time-date, .a-complete .time-date, .w-complete .time-date {
@@ -83,12 +85,12 @@ body {
 }
 
 .a-detail {
-  margin-left: 80px;
+  margin: 0 10px 0 80px;
 }
 
 .a-detail .a-title {
-  font-size: 18px;
-  line-height: 45px;
+  font-size: 16px;
+  line-height: 40px;
 }
 
 .a-detail .a-title:hover {
@@ -96,7 +98,7 @@ body {
 }
 
 .a-complete .a-title, .w-complete .a-title {
-  font-size: 21px;
+  font-size: 16px;
   line-height: 3;
   color: #3E3E3E;
 }
@@ -202,8 +204,9 @@ body {
 }
 
 aside.article_nav {
-  width: 180px;
-  float: right;
+  width: 100%;
+  position: absolute;
+  top: 30px;
 }
 
 aside.article_nav h1 {
@@ -212,7 +215,7 @@ aside.article_nav h1 {
   font-size: 14px;
   font-weight: normal;
   line-height: 1;
-  margin-bottom: 27px;
+  margin-top: 5px;
 }
 
 aside.article_nav h1 span {
@@ -227,9 +230,13 @@ aside.article_nav section {
   margin-bottom: 50px;
 }
 
+.a_catelog {
+    margin-top: 108px;
+}
+
 .cata-single {
+    float: left;
   font-size: 14px;
-  border-bottom: 1px dashed #e5e5e5;
   line-height: 36px;
   margin-bottom: 8px;
   padding-left: 20px;
@@ -305,10 +312,10 @@ aside.article_nav section {
 
 .comm-form .artRContent {
   display: block;
-  width: 680px;
+  width: 90%;
   padding: 10px;
   height: 80px;
-  margin-top: 10px;
+  margin: 10px auto 0;
 }
 
 .comm-submit {
