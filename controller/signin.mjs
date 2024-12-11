@@ -22,7 +22,7 @@ async function signin(ctx, next) {
             name: name
         }
     });
-    if (name === 'lily' && password === '123456') {
+    if (user && password === user.password) {
         ctx.session.logged = true;
         ctx.response.redirect('/');
     } else {

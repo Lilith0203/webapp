@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block main %}
+<div class="main-container">
+    <div class="admin-wrapper clearfix">
+        <section id="admin-diy">
+            <h1>手工区</h1>
+            <div>
+                <h2>材料分类：</h2>
+                {% for types in typetree %}
+                <ul class="type-list">
+                    <li>{{ types.typeName }} ({{types.id}})</li>
+                    {% if types.children %}
+                    <ul>
+                        {% for type in types.children %}
+                        <li>{{type.typeName}}  ({{type.id}})</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </ul>
+                {% endfor %}
+            </div>
+            <div>
+                <h2>添加分类：</h2>
+                <form action="/diy/addtype" method="post" class="type-form">
+                    <fieldset>
+                        <legend>添加分类</legend>
+                        <label for="typeName">分类名称：</label>
+                        <input type="text" name="typeName" id="typeName"> <br>
+                        <label for="parentId">上级分类：</label>
+                        <input type="text" name="parentId" id="parentId"> <br>
+                        <input type="submit" value="添加">
+                    </fieldset>
+                </form>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
