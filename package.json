@@ -15,5 +15,8 @@
     "nunjucks": "^3.2.4",
     "sequelize": "^6.37.5",
     "utility": "^2.1.0"
+  },
+  "devDependencies": {
+    "grunt": "^1.6.1"
   }
 }

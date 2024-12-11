@@ -1,6 +1,13 @@
+@import url("base.css");
+
 body {
   background: transparent url(/static/images/articles-bg.png);
   color: #5e5e5e;
+}
+
+.content-wrapper {
+  width: 100%;
+  margin: 60px auto 0;
 }
 
 .bottom-footer {
@@ -19,7 +26,6 @@ body {
   height: 50px;
   margin-top: 30px;
   background: transparent url(/static/images/article-logo.png) no-repeat;
-  background-size: 100%;
   font-size: 0;
 }
 

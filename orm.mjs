@@ -120,6 +120,10 @@ export const Material = sequelize.define('Material', {
         type: DataTypes.INTEGER,
         allowNull: false
     },
+    substance: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
     size: {
         type: DataTypes.STRING,
         allowNull: true
