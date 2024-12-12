@@ -70,4 +70,3 @@ app.use(await controller());
 
 //在端口80监听
 app.listen(80);
-console.log('app started at port 80');
