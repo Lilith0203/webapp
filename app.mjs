@@ -1,14 +1,19 @@
 import Koa from 'koa';
-import mount from 'koa-mount';
+//import mount from 'koa-mount';
 import serve from 'koa-static';
 import session from 'koa-session';
+import { fileURLToPath} from 'url';
+import { dirname, join } from 'path';
+import {promises as fs} from 'fs';
 import { bodyParser } from '@koa/bodyparser';
 
 import controller from './controller.mjs';
-import templateEngine from './view.mjs';
+//import templateEngine from './view.mjs';
 import { sequelize, User } from './orm.mjs';
 
 const isProduction = process.env.NODE_ENV === 'production';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const session_signed_key = ["secret lily"]
 const session_config = {
@@ -26,41 +31,36 @@ const session1 = session(session_config, app)
 app.keys = session_signed_key;
 app.use(session1)
 
+app.use(serve(join(__dirname, 'view')))
+
+/*
 app.context.render = function (view, model) {
     this.response.type = 'text/html; charset=utf-8';
     this.response.body = templateEngine.render(view, Object.assign({}, this.state || {}, model || {}));
-}
+}*/
 
 async function initDb() {
-    // only for development:
     await sequelize.sync();
-    const name = 'lily';
-    let user = await User.findOne({
-        where: {
-            name: name
-        }
-    });
-    if (user === null) {
-        await User.create({
-            name: 'lily',
-            password: '123456'
-        });
-    }
 }
 await initDb();
 
 // 绑定db到app.context:
 app.context.db = await initDb();
 
-//log url:
 app.use(async (ctx, next) => {
-    //console.log(`Process ${ctx.request.method} ${ctx.request.url}...`);
+    await fs.readFile(join(__dirname, 'view', 'index.html'))
+    .then(content => {
+      ctx.type = 'html'
+      ctx.body = content
+    })
+    .catch(err => {
+      ctx.status = 500
+      ctx.body = 'Error loading index.html'
+    })//console.log(`Process ${ctx.request.method} ${ctx.request.url}...`);
     await next();
 })
 
-//if (!isProduction) {
-    app.use(mount('/static', serve('static')));
-//}
+//app.use(mount('/static', serve('static')));
 
 //解析request.body:
 app.use(bodyParser());
@@ -70,3 +70,4 @@ app.use(await controller());
 
 //在端口80监听
 app.listen(80);
+console.log(`Web server running at http://localhost:80/`)

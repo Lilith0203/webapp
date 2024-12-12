@@ -1,85 +1,17 @@
-{% block head %}
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8">
-    <title>Lilith - 个人主页</title>
     <meta name="keywords" content="个人主页,个人网站,设计,生活" />
     <meta name="description" content="展示、记录、收集学习和生活中的美好的点滴。" />
     <meta name="author" content="Lily_Vain" />
+    <link rel="icon" href="/liv.ico">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-    <link rel="Shortcut Icon" href="/static/images/liv.ico" />
-    <link href="/static/style/indexm.css" rel="stylesheet" type="text/css" media="screen and (max-width:600px)">
-    <link href="/static/style/index.css" rel="stylesheet" type="text/css" media="screen and (min-width:900px)">
-    <script src="/static/script/lib/modernizr.custom.js"></script>
-</head>
-{% endblock %}
-
-{% extends "base.html" %}
-{% block main %}
-<div class="main-container">
-    <div id="up-area">
-        <div id="upArea-content">
-            <header id="i-logo">
-                <hgroup>
-                    <h1>Lily's Lily</h1>
-                    <!-- <h2>写给自己用的网站</h2> -->
-                </hgroup>
-                <div id="person_info">
-                    <p>欢迎关注：
-            		<span id="weixin-button">
-                		<!--<img src="static/images/weixin-ewm.png" class="hidden"/>-->
-            		</span>
-                    </p>
-                </div>
-            </header>
-            <div id="words-wrapper">
-                <a href="" class="arrow-left"></a>
-                <a href="" class="arrow-right"></a>
-                <article id="words-content">
-                    <h1>Words</h1>
-                    <div id="words-list">
-                        <section class="clearfix">
-
-                            <img src="/static/images/works/10152015182951.png" class="word-pic"/>
-                            <time datetime="2017-09-27" class="word-date">2017-09-27</time>
-                            <div class="word-text">
-                                展示用
-                            </div>
-                        </section>
-                        <section class="clearfix">
-                            <img src="/static/images/works/10152015182951.png" class="word-pic"/>
-                            <time datetime="2013-04-24" class="word-date">2013-04-24</time>
-                            <div class="word-text">
-                                
-                            </div>
-                        </section>
-                    </div>
-                </article>
-            </div>
-
-            <nav class="nav-fix">
-                <ul>
-                    <li><a href="/">首页</a></li>
-                    <li><a href="/article">文章</a></li>
-                    <li><a href="">手工</a></li>
-                </ul>
-            </nav>
-        </div>
-    </div>
-
-    <div class="content-wrapper">
-        <article id="article-list">
-            <div id="alist-title"><h1><a href="article" title="文章">文</a></h1></div>
-            <a href="article" class="alist-more">More</a>
-            {% for item in articles %}
-            <section class="a-title">
-                <h1><a href="article/{{item.id}}">{{item.title}}</a></h1>
-                <time datetime="{{item.createdAt}}">{{item.createdAt}}</time>
-            </section>
-            {% endfor %}
-            <section class="a-title"><h1><a href="article">更多...</a></h1></section>
-        </article>
-    </div><!-- div.content-wrapper -->
-</div><!-- div.main-container -->
-{% endblock %}
+    <title>Lilith - 个人主页</title>
+    <script type="module" crossorigin src="/assets/index-BotCi6zA.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Cnugk42a.css">
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+</html>

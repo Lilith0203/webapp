@@ -6,11 +6,11 @@ import { fileURLToPath } from 'url';
 async function scan(router, controllerDir) {
     // 扫描controller目录:
     const dirname = path.dirname(fileURLToPath(import.meta.url));
-    console.log(`scan dir ${dirname}...`);
+    //console.log(`scan dir ${dirname}...`);
     let files = readdirSync(path.join(dirname, controllerDir)).filter(f => f.endsWith('.mjs'));
     for (let file of files) {
         // 导入模块:
-        console.log(`import controller/${file}...`);
+        //console.log(`import controller/${file}...`);
         let { default: mapping } = await import(`./${controllerDir}/${file}`);
         // 把每个URL映射添加到router:
         for (let url in mapping) {
