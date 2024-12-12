@@ -1,7 +1,7 @@
 import * as utils from 'utility';
 import { Articles } from '../orm.mjs';
 
-//GET /article
+//GET /api/article
 async function article(ctx, next) {
     let page = parseInt(ctx.query.page) || 1;
     let size = parseInt(ctx.query.size) || 10;
@@ -14,12 +14,19 @@ async function article(ctx, next) {
     rows.forEach(item => {
         item.setDataValue('createdAt', utils.YYYYMMDDHHmmss(item.createdAt));
     })
+    /*
     ctx.render('article.html', {
         count: count,
         articles: rows,
         page_all: Math.ceil(count / size),
         page_now: page,
-    });
+    }); */
+    ctx.body = {
+        count: count,
+        articles: rows,
+        page_all: Math.ceil(count / size),
+        page_now: page,
+    }
 }
 
 //GET /article/id
@@ -36,6 +43,6 @@ async function article_detail(ctx, next) {
 }
 
 export default {
-    'GET /article': article,
+    'GET /api/article': article,
     'GET /article/:id': article_detail
 }

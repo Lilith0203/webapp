@@ -6,6 +6,7 @@ import { fileURLToPath} from 'url';
 import { dirname, join } from 'path';
 import {promises as fs} from 'fs';
 import { bodyParser } from '@koa/bodyparser';
+import cors from '@koa/cors';
 
 import controller from './controller.mjs';
 //import templateEngine from './view.mjs';
@@ -62,6 +63,8 @@ app.use(async (ctx, next) => {
 
 //app.use(mount('/static', serve('static')));
 
+//处理跨域
+app.use(cors());
 //解析request.body:
 app.use(bodyParser());
 
