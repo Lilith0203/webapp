@@ -31,18 +31,19 @@ async function article(ctx, next) {
 
 //GET /article/id
 async function article_detail(ctx, next) {
-    let id = ctx.params.id;
+    let id = parseInt(ctx.params.id);
     let article = await Articles.findOne({
         where: {
             id: id
         }
     });
-    ctx.render('article_detail.html', {
+    article.setDataValue('updatedAt', utils.YYYYMMDDHHmmss(article.updatedAt));
+    ctx.body = {
         article: article
-    });
+    }
 }
 
 export default {
     'GET /api/article': article,
-    'GET /article/:id': article_detail
+    'GET /api/article/:id': article_detail
 }
