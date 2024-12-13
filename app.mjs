@@ -1,7 +1,8 @@
 import Koa from 'koa';
+import jwt from 'koa-jwt';
 //import mount from 'koa-mount';
 import serve from 'koa-static';
-import session from 'koa-session';
+//import session from 'koa-session';
 import { fileURLToPath} from 'url';
 import { dirname, join } from 'path';
 import {promises as fs} from 'fs';
@@ -13,24 +14,25 @@ import controller from './controller.mjs';
 import { sequelize, User } from './orm.mjs';
 
 const isProduction = process.env.NODE_ENV === 'production';
+//添加 JWT 密钥配置
+const JWT_SECRET = process.env.JWT_SECRET || "my-secret-key"
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const session_signed_key = ["secret lily"]
-const session_config = {
-    key: 'koa.sess',     /**  cookie的key。 (默认是 koa:sess) */
-    maxAge: 86400000,    //单位毫秒，1天
-    overwrite: true,      /** 是否允许重写 。(默认是 true) */
-    httpOnly: true,     /** 是否设置HttpOnly，如果在Cookie中设置了"HttpOnly"属性，那么通过程序(JS脚本、Applet等)将无法读取到Cookie信息，这样能有效的防止XSS攻击。  (默认 true) */
-    signed: session_signed_key,
-    rolling: true   /** 是否每次响应时刷新Session的有效期。(默认是 false) */
-}
-
+//const session_signed_key = ["secret lily"]
+//const session_config = {
+//    key: 'koa.sess',     /**  cookie的key。 (默认是 koa:sess) */
+//    maxAge: 86400000,    //单位毫秒，1天
+//    overwrite: true,      /** 是否允许重写 。(默认是 true) */
+//    httpOnly: true,     /** 是否设置HttpOnly，如果在Cookie中设置了"HttpOnly"属性，那么通过程序(JS脚本、Applet等)将无法读取到Cookie信息，这样能有效的防止XSS攻击。  (默认 true) */
+//    signed: session_signed_key,
+//    rolling: true   /** 是否每次响应时刷新Session的有效期。(默认是 false) */
+//}
 //创建一个koa实例表示webapp本身
 const app = new Koa();
-const session1 = session(session_config, app)
-app.keys = session_signed_key;
-app.use(session1)
+//const session1 = session(session_config, app)
+//app.keys = session_signed_key;
+//app.use(session1)
 
 app.use(serve(join(__dirname, 'view')))
 
@@ -67,6 +69,36 @@ app.use(async (ctx, next) => {
 app.use(cors());
 //解析request.body:
 app.use(bodyParser());
+
+//添加 JWT 错误处理中间件
+app.use(async (ctx, next) => {
+  return next().catch((err) => {
+      if (err.status === 401) {
+          ctx.status = 401;
+          ctx.body = {
+              success: false,
+              message: '未授权，请登录'
+          };
+      } else {
+          throw err;
+      }
+  });
+});
+
+// 添加 JWT 中间件，排除不需要验证的路径
+app.use(jwt({ 
+  secret: JWT_SECRET 
+}).unless({ 
+  custom: (ctx) => {
+    // 需要JWT验证的路径
+    const protectedPaths = [
+        //'/api/article',     // 用户信息
+    ];
+    
+    // 检查当前路径是否需要保护
+    return !protectedPaths.some(path => ctx.path.startsWith(path));
+  }
+}));
 
 //使用controller()
 app.use(await controller());

@@ -1,38 +1,69 @@
 import { User } from '../orm.mjs'
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
-//GET /login
-async function login(ctx, next) {
-    if (!ctx.session.logged) {
-        ctx.render('login.html', {
-        
-        });
-    } else {
-        ctx.response.redirect('/');
-    }
-}
+const JWT_SECRET = process.env.JWT_SECRET || "my-secret-key"
 
 //POST /signin
-async function signin(ctx, next) {
-    let name = ctx.request.body.name || '';
+async function login(ctx, next) {
+    let name = ctx.request.body.username || '';
     let password = ctx.request.body.password || '';
-    console.log(`try signin: ${name}, password: ${password}`);
-    //调用Model.findOne() 查询一行记录
-    let user = await User.findOne({
-        where: {
-            name: name
+    
+    try {
+        //调用Model.findOne() 查询一行记录
+        let user = await User.findOne({
+            where: {
+                name: name
+            }
+        });
+
+        if (!user) {
+            ctx.status = 401;
+            ctx.body = {
+                message: "用户不存在"
+            };
+            return;
         }
-    });
-    if (user && password === user.password) {
-        ctx.session.logged = true;
-        ctx.response.redirect('/');
-    } else {
-        ctx.response.type = 'text/html';
-        ctx.response.body = '<h1>Signin failed!</h1><p><a href="/login">Retry</a></p>';
+
+        const hashedPassword = crypto
+            .createHash('md5')
+            .update(password)
+            .digest('hex');
+
+        if (hashedPassword === user.password) {
+            const token = jwt.sign({
+                id: user.id,
+                name: user.name,
+                },
+                JWT_SECRET,
+                {expiresIn: '24h'}
+            );
+            //ctx.session.logged = true;
+            ctx.body = {
+                code: 200,
+                data: {
+                    user: user.name,
+                    token: `${token}`,
+                },
+                message: "成功登录"
+            }
+        } else {
+            ctx.status = 401;
+            ctx.body = {
+                code: 401,
+                message: "密码错误"
+            }
+        }
+    } catch (error) {
+        ctx.status = 500;
+        ctx.body = {
+            code: 500,
+            message: "服务器错误"
+        }
     }
 }
 
 //导出处理函数
 export default {
-    'GET /login': login,
-    'POST /signin': signin
+    'POST /api/login': login
 }
