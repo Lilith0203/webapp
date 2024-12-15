@@ -29,6 +29,9 @@ function arrayToTree(arr, root) {
 //GET /getMaterialType
 async function getType(ctx, next) {
     let types = await MaterialType.findAll({
+        where: {
+            isDeleted: 0
+        }
     });
     let typetree = arrayToTree(types, 0)
 
@@ -37,18 +40,58 @@ async function getType(ctx, next) {
     }
 }
 
-//POST /diy/addtype
+//POST /api/addMaterialType
 async function addtype(ctx, next) {
-    if (ctx.session.logged) {
-        let typeName = ctx.request.body.typeName;
-        let parentId = ctx.request.body.parentId || 0;
-        const type = await MaterialType.create({
-           typeName: typeName,
-           parentId: parentId
+    let typeName = ctx.request.body.typeName;
+    let parentId = ctx.request.body.parentId || 0;
+    if (parentId === 0) {
+        await MaterialType.create({
+            typeName: typeName,
+            level: 0,
+            parentId: parentId
         });
-        ctx.response.redirect('/admin');
     } else {
-        ctx.response.redirect('/login');
+        await MaterialType.create({
+            typeName: typeName,
+            level: 1,
+            parentId: parentId
+        });
+    }
+    ctx.body = {
+        success: true
+    }
+}
+
+async function updateMaterialType(ctx, next) {
+    const id = ctx.request.body.id;
+    const updateData = {
+        typeName: ctx.request.body.typeName,
+    };
+
+    try {
+        //查找并更新material
+        const materialType = await MaterialType.findByPk(id);
+        if (!materialType) {
+            ctx.body = {
+                success: false,
+                message: '未找到该材料类型'
+            }
+            return;
+        }
+
+        await MaterialType.update(updateData, {
+            where: {
+                id: id
+            }
+        });
+        ctx.body = {
+            success: true
+        }
+    } catch (error) {
+        ctx.body = {
+            success: false,
+            message: '更新失败: ' + error.message
+        }
     }
 }
 
@@ -175,9 +218,45 @@ async function deleteMaterial(ctx, next) {
     }
 }
 
+//POST /api/deleteMaterialType
+async function deleteType(ctx, next) {
+    const id = ctx.request.body.id;
+    const updateData = {
+        isDeleted: 1
+    };
+
+    try {
+        //查找并更新material
+        const materialType = await MaterialType.findByPk(id);
+        if (!materialType) {
+            ctx.body = {
+                success: false,
+                message: '未找到该材料'
+            }
+            return;
+        }
+
+        await MaterialType.update(updateData, {
+            where: {
+                id: id
+            }
+        });
+        ctx.body = {
+            success: true
+        }
+    } catch (error) {
+        ctx.body = {
+            success: false,
+            message: '删除失败: ' + error.message
+        }
+    }
+}
+
 export default {
     'GET /api/getMaterialType': getType,
-    'POST /diy/addtype': addtype,
+    'POST /api/updateMaterialType': updateMaterialType,
+    'POST /api/addMaterialType': addtype,
+    'POST /api/deleteMaterialType': deleteType,
     'POST /api/material': material,
     'POST /api/updateMaterial': updateMaterial,
     'POST /api/addMaterial': addMaterial,

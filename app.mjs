@@ -92,7 +92,12 @@ app.use(jwt({
   custom: (ctx) => {
     // 需要JWT验证的路径
     const protectedPaths = [
-        //'/api/article',     // 用户信息
+        '/api/updateMaterialType', 
+        '/api/addMaterialType', 
+        '/api/deleteMaterialType',
+        '/api/updateMaterial',
+        '/api/addMaterial',
+        '/api/deleteMaterial'
     ];
     
     // 检查当前路径是否需要保护
