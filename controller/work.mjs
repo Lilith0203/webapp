@@ -100,7 +100,8 @@ async function material(ctx, next) {
     let materials = await Material.findAll({
         where: {
             isDeleted: 0
-        }
+        },
+        order: [['updatedAt', 'DESC']]
     });
     ctx.body = {
         materials: materials,
