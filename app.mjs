@@ -8,6 +8,7 @@ import { dirname, join } from 'path';
 import {promises as fs} from 'fs';
 import { bodyParser } from '@koa/bodyparser';
 import cors from '@koa/cors';
+import multer from '@koa/multer';
 
 import controller from './controller.mjs';
 //import templateEngine from './view.mjs';

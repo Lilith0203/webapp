@@ -169,3 +169,33 @@ export const Material = sequelize.define('Material', {
     //指定表名
     tableName: 'material'
 });
+
+export const GridData = sequelize.define('GridData', {
+    //每一列的定义
+    id: {
+        primaryKey: true,
+        autoIncrement: true,
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    size: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    cells: {
+        type: DataTypes.TEXT,
+        allowNull: false
+    },
+    isDeleted: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    }
+}, {
+    //指定表名
+    tableName: 'grid_data'
+});
