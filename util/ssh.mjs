@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 class SSLConfig {
     constructor() {
         this.sslOptions = null;
@@ -13,6 +15,10 @@ class SSLConfig {
 
     // 加载 SSL 证书
     loadCertificates() {
+        //开发环境下不加载
+        if (!isProduction) {
+            return false;
+        }
         try {
             // 读取密钥和证书文件
             const privateKey = fs.readFileSync(path.join(__dirname, '../ssl/lilithu.com.key'), 'utf8');

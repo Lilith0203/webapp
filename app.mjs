@@ -14,7 +14,6 @@ import controller from './controller.mjs';
 import { sequelize, User } from './orm.mjs';
 import sslConfig from './util/ssh.mjs';
 import http from 'http';
-import path from 'path';
 
 const isProduction = process.env.NODE_ENV === 'production';
 //添加 JWT 密钥配置
@@ -131,6 +130,11 @@ app.use(await controller());
 // 启动服务器
 async function startServer() {
   try {
+        // 启动 HTTP 服务器（80端口）
+        //app.listen(80, () => {
+        //    console.log('HTTP Server running on http://localhost:80');
+        //});
+        
       // 加载 SSL 证书
       if (sslConfig.loadCertificates()) {
           // 创建 HTTPS 服务器（443端口）
