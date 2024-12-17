@@ -1,5 +1,29 @@
 import { MaterialType } from '../orm.mjs'
 import { Material } from '../orm.mjs'
+import { uploadToOSS } from '../oss.mjs';
+import multer from '@koa/multer';
+
+// 配置文件上传
+const upload = multer();
+
+// 文件上传处理
+async function uploadFile(ctx, next) {
+    try {
+        const file = ctx.request.file;
+        const url = await uploadToOSS(file);
+        
+        ctx.body = {
+            success: true,
+            url: url
+        };
+    } catch (error) {
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '文件上传失败: ' + error.message
+        };
+    }
+}
 
 function arrayToTree(arr, root) {
     const result = []
@@ -155,7 +179,6 @@ async function updateMaterial(ctx, next) {
 
 //POST /api/addMaterial
 async function addMaterial(ctx, next) {
-    const id = ctx.request.body.id;
     const newData = {
         name: ctx.request.body.name,
         type: parseInt(ctx.request.body.type),
@@ -168,16 +191,22 @@ async function addMaterial(ctx, next) {
         shop: ctx.request.body.shop,
         note: ctx.request.body.note,
         link: ctx.request.body.link,
-        pic: ctx.request.body.pic
     };
 
     try {
+        // 处理图片上传
+        if (ctx.request.file) {
+            const picUrl = await uploadToOSS(ctx.request.file);
+            newData.pic = picUrl;
+        }
         //查找并更新material
         const material = await Material.create(newData);
         ctx.body = {
-            success: true
+            success: true,
+            data: material
         }
     } catch (error) {
+        ctx.status = 500;
         ctx.body = {
             success: false,
             message: '添加失败: ' + error.message
@@ -260,6 +289,7 @@ export default {
     'POST /api/deleteMaterialType': deleteType,
     'POST /api/material': material,
     'POST /api/updateMaterial': updateMaterial,
-    'POST /api/addMaterial': addMaterial,
+    'POST /api/addMaterial': [upload.single('pic'), addMaterial],
     'POST /api/deleteMaterial': deleteMaterial,
+    'POST /api/upload': [upload.single('file'), uploadFile]
 }

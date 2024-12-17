@@ -16,11 +16,19 @@ async function scan(router, controllerDir) {
         for (let url in mapping) {
             if (url.startsWith('GET ')) {
                 let p = url.substring(4);
-                router.get(p, mapping[url]);
+                if (Array.isArray(mapping[url])) {
+                    router.get(p, ...mapping[url]);
+                } else {
+                    router.get(p, mapping[url]);
+                }
                 console.log(`mapping: GET ${p}`);
             } else if (url.startsWith('POST ')) {
                 let p = url.substring(5);
-                router.post(p, mapping[url]);
+                if (Array.isArray(mapping[url])) {
+                    router.post(p, ...mapping[url]);
+                } else {
+                    router.post(p, mapping[url]);
+                }
                 console.log(`mapping: POST ${p}`);
             } else {
                 console.warn(`invalid mapping: ${url}`);

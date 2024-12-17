@@ -105,6 +105,23 @@ app.use(jwt({
   }
 }));
 
+// 添加文件上传错误处理
+app.use(async (ctx, next) => {
+  try {
+      await next();
+  } catch (err) {
+      if (err instanceof multer.MulterError) {
+          ctx.status = 400;
+          ctx.body = {
+              success: false,
+              message: '文件上传错误: ' + err.message
+          };
+      } else {
+          throw err;
+      }
+  }
+});
+
 //使用controller()
 app.use(await controller());
 
