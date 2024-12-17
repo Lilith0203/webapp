@@ -12,6 +12,9 @@ import cors from '@koa/cors';
 import controller from './controller.mjs';
 //import templateEngine from './view.mjs';
 import { sequelize, User } from './orm.mjs';
+import sslConfig from './util/ssh.mjs';
+import http from 'http';
+import path from 'path';
 
 const isProduction = process.env.NODE_ENV === 'production';
 //添加 JWT 密钥配置
@@ -125,6 +128,44 @@ app.use(async (ctx, next) => {
 //使用controller()
 app.use(await controller());
 
-//在端口80监听
-app.listen(80);
-console.log(`Web server running at http://localhost:80/`)
+// 启动服务器
+async function startServer() {
+  try {
+      // 加载 SSL 证书
+      if (sslConfig.loadCertificates()) {
+          // 创建 HTTPS 服务器（443端口）
+          const httpsServer = sslConfig.createHttpsServer(app);
+          httpsServer.listen(443, () => {
+              console.log('HTTPS Server running on https://localhost:443');
+          });
+
+          // 创建 HTTP 服务器并重定向到 HTTPS（80端口）
+          http.createServer((req, res) => {
+              res.writeHead(301, {
+                  'Location': 'https://' + req.headers.host.split(':')[0] + ':443' + req.url
+              });
+              res.end();
+          }).listen(80, () => {
+              console.log('HTTP Server redirecting to HTTPS');
+          });
+      } else {
+          // SSL 证书加载失败，仅启动 HTTP 服务器
+          console.warn('SSL证书加载失败，使用HTTP模式');
+          app.listen(80, () => {
+              console.log('HTTP Server running on http://localhost:80');
+          });
+      }
+  } catch (error) {
+      console.error('服务器启动失败:', error);
+      process.exit(1);
+  }
+}
+
+// 启动服务器
+startServer();
+
+// 优雅退出
+process.on('SIGTERM', () => {
+  console.log('收到 SIGTERM 信号，准备关闭服务器');
+  process.exit(0);
+});
