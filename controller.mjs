@@ -30,6 +30,14 @@ async function scan(router, controllerDir) {
                     router.post(p, mapping[url]);
                 }
                 console.log(`mapping: POST ${p}`);
+            } else if (url.startsWith('PUT ')) {  // 添加 PUT 请求支持
+                let p = url.substring(4);
+                if (Array.isArray(mapping[url])) {
+                    router.put(p, ...mapping[url]);
+                } else {
+                    router.put(p, mapping[url]);
+                }
+                console.log(`mapping: PUT ${p}`);
             } else {
                 console.warn(`invalid mapping: ${url}`);
             }
