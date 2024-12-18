@@ -199,3 +199,42 @@ export const GridData = sequelize.define('GridData', {
     //指定表名
     tableName: 'grid_data'
 });
+
+export const Works = sequelize.define('Works', {
+    //每一列的定义
+    id: {
+        primaryKey: true,
+        autoIncrement: true,
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    price: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+        defaultValue: 0
+    },
+    description: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    pictures: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    tags: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    isDeleted: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    }
+}, {
+    //指定表名
+    tableName: 'works'
+});
