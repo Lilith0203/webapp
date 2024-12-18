@@ -6,22 +6,24 @@ const ossClient = new OSS({
     region: config.get("oss.region"),  // 例如：'oss-cn-hangzhou'
     accessKeyId: config.get("oss.accessKeyId"),
     accessKeySecret: config.get("oss.accessKeySecret"),
-    bucket: 'lilithu'
+    bucket: config.get("oss.bucket")
 });
 
 // 生成文件名
-const generateFileName = (originalName) => {
+const generateDefaultPath = (originalName) => {
     const ext = originalName.split('.').pop();
-    const timestamp = new Date().getTime();
+    const timestamp = Date.now();
     const random = Math.floor(Math.random() * 1000);
-    return `materials/${timestamp}-${random}.${ext}`;
+    return `default/${timestamp}-${random}.${ext}`;
 };
 
 // 上传文件到 OSS
-export async function uploadToOSS(file) {
+export async function uploadToOSS(file, filePath) {
     try {
-        const fileName = generateFileName(file.originalname);
-        const result = await ossClient.put(fileName, file.buffer);
+        // 使用传入的文件路径，如果没有则生成默认路径
+        const ossPath = filePath || generateDefaultPath(file.originalname);
+
+        const result = await ossClient.put(ossPath, file.buffer);
         return result.url; // 返回文件访问地址
     } catch (error) {
         console.error('OSS upload error:', error);

@@ -22,8 +22,9 @@ async function saveGrid(ctx, next) {
             ? JSON.stringify(ctx.request.body.cells)  // 如果是数组，转换为 JSON 字符串
             : ctx.request.body.cells; 
 
+    let id = 0;
     if(ctx.request.body.id) {
-        let id = parseInt(ctx.request.body.id);
+        id = parseInt(ctx.request.body.id);
         try {
             const grid = await GridData.findByPk(id);
             if (!grid) {
@@ -51,13 +52,15 @@ async function saveGrid(ctx, next) {
             return;
         }
     } else {
-        await GridData.create({
+        const grid =await GridData.create({
             name: name,
             size: size,
             cells: cells
         });
+        id = grid.id;
     }
     ctx.body = {
+        id: id,
         success: true
     }
 }

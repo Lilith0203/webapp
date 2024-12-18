@@ -6,25 +6,6 @@ import multer from '@koa/multer';
 // 配置文件上传
 const upload = multer();
 
-// 文件上传处理
-async function uploadFile(ctx, next) {
-    try {
-        const file = ctx.request.file;
-        const url = await uploadToOSS(file);
-        
-        ctx.body = {
-            success: true,
-            url: url
-        };
-    } catch (error) {
-        ctx.status = 500;
-        ctx.body = {
-            success: false,
-            message: '文件上传失败: ' + error.message
-        };
-    }
-}
-
 function arrayToTree(arr, root) {
     const result = []
     const map = {}
@@ -194,11 +175,6 @@ async function addMaterial(ctx, next) {
     };
 
     try {
-        // 处理图片上传
-        if (ctx.request.file) {
-            const picUrl = await uploadToOSS(ctx.request.file);
-            newData.pic = picUrl;
-        }
         //查找并更新material
         const material = await Material.create(newData);
         ctx.body = {
@@ -289,7 +265,6 @@ export default {
     'POST /api/deleteMaterialType': deleteType,
     'POST /api/material': material,
     'POST /api/updateMaterial': updateMaterial,
-    'POST /api/addMaterial': [upload.single('pic'), addMaterial],
+    'POST /api/addMaterial': addMaterial,
     'POST /api/deleteMaterial': deleteMaterial,
-    'POST /api/upload': [upload.single('file'), uploadFile]
 }

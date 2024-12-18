@@ -6,6 +6,9 @@ async function article(ctx, next) {
     let page = parseInt(ctx.query.page) || 1;
     let size = parseInt(ctx.query.size) || 10;
     let {count, rows} = await Articles.findAndCountAll({
+        where: {
+            isDeleted: 0
+        },
         attributes: ['id', 'title', 'abbr', 'tags', 'classify', 'createdAt'],
         offset: (page - 1) * size,
         limit: size,
