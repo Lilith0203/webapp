@@ -24,7 +24,14 @@ export async function uploadToOSS(file, filePath) {
         const ossPath = filePath || generateDefaultPath(file.originalname);
 
         const result = await ossClient.put(ossPath, file.buffer);
-        return result.url; // 返回文件访问地址
+
+        // 使用配置的自定义域名替换默认的OSS域名
+        const customDomain = config.get("oss.customDomain");
+        const url = result.url.replace(
+            /^http?:\/\/[^\/]+/,
+            customDomain.startsWith('http') ? customDomain : `http://${customDomain}`
+        );
+        return url; // 返回文件访问地址
     } catch (error) {
         console.error('OSS upload error:', error);
         throw error;
