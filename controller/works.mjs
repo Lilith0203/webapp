@@ -1,12 +1,15 @@
 import * as utils from 'utility';
 import { Works } from '../orm.mjs';
+import { cleanOssUrls } from '../oss.mjs';
 
 //GET /api/works
 async function works(ctx, next) {
+    let page = ctx.query.size ? parseInt(ctx.query.size) : 12;
     let {count, rows} = await Works.findAndCountAll({
         where: {
             isDeleted: 0
         },
+        limit: page,
         order: [['updatedAt', 'DESC']]
     });
 
@@ -40,6 +43,8 @@ async function works_add(ctx, next) {
         const tags = Array.isArray(workData.tags) 
             ? JSON.stringify(workData.tags)
             : workData.tags;
+        
+        workData.pictures = cleanOssUrls(workData.pictures);
         const pictures = Array.isArray(workData.pictures) 
             ? JSON.stringify(workData.pictures)
             : workData.pictures;
@@ -92,6 +97,7 @@ async function works_edit(ctx, next) {
         const tags = Array.isArray(updateData.tags) 
             ? JSON.stringify(updateData.tags)  // 如果是数组，转换为 JSON 字符串
             : updateData.tags; 
+        updateData.pictures = cleanOssUrls(updateData.pictures);
         const pictures = Array.isArray(updateData.pictures) 
             ? JSON.stringify(updateData.pictures)
             : updateData.pictures;

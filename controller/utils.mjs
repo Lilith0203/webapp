@@ -1,5 +1,5 @@
 import * as utils from 'utility';
-import { uploadToOSS, refreshImageUrl } from '../oss.mjs';
+import { uploadToOSS, generateSignedUrl } from '../oss.mjs';
 import multer from '@koa/multer';
 import config from 'config'
 
@@ -40,7 +40,7 @@ async function uploadFile(ctx, next) {
 async function refreshSignedUrl(ctx, next) {
     if (ctx.request.body.url) {
         let objectName = getObjectNameFromUrl(ctx.request.body.url);
-        let new_url = await refreshImageUrl(objectName);
+        let new_url = await generateSignedUrl(objectName, ctx.request.body.url);
         ctx.body = {
             success: true,
             url: new_url

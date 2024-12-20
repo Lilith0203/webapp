@@ -96,6 +96,8 @@ app.use(jwt({
     // 需要JWT验证的路径
     const protectedPaths = [
         '/api/articleAdd',
+        '/api/article/edit',
+        '/api/article/delete',
         '/api/updateMaterialType', 
         '/api/addMaterialType', 
         '/api/deleteMaterialType',

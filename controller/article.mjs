@@ -1,5 +1,6 @@
 import * as utils from 'utility';
 import { Articles } from '../orm.mjs';
+import { cleanOssUrl } from '../oss.mjs';
 
 //GET /api/article
 async function article(ctx, next) {
@@ -65,9 +66,9 @@ async function article_detail(ctx, next) {
     }
 }
 
-//PUT /api/article/:id
+//POST /api/article/edit
 async function article_update(ctx, next) {
-    const id = parseInt(ctx.params.id);
+    const id = parseInt(ctx.request.body.id);
     const updateData = ctx.request.body;
     
     try {
@@ -113,6 +114,43 @@ async function article_update(ctx, next) {
     }
 }
 
+async function article_delete(ctx, next) {
+    const id = parseInt(ctx.request.body.id);
+    const updateData = {
+        isDeleted: 1
+    };
+    
+    try {
+        // 查找文章
+        const article = await Articles.findByPk(id);
+        if (!article) {
+            ctx.status = 404;
+            ctx.body = {
+                success: false,
+                message: '文章不存在'
+            };
+            return;
+        }
+
+        // 更新文章
+        await Articles.update(updateData, {
+            where: { id: id }
+        });
+
+        ctx.body = {
+            success: true,
+            message: '文章删除成功'
+        };
+    } catch (error) {
+        console.error('Update article error:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '文章删除失败'
+        };
+    }
+}
+
 //POST /api/articleAdd
 async function article_add(ctx, next) {
     const articleData = ctx.request.body;
@@ -154,6 +192,7 @@ async function article_add(ctx, next) {
 export default {
     'GET /api/article': article,
     'GET /api/article/:id': article_detail,
-    'PUT /api/article/:id': article_update,
-    'POST /api/articleAdd': article_add
+    'POST /api/article/edit': article_update,
+    'POST /api/articleAdd': article_add,
+    'POST /api/article/delete': article_delete
 }

@@ -1,6 +1,6 @@
 import { MaterialType } from '../orm.mjs'
 import { Material } from '../orm.mjs'
-import { uploadToOSS } from '../oss.mjs';
+import { cleanOssUrl } from '../oss.mjs';
 import multer from '@koa/multer';
 
 // 配置文件上传
@@ -116,6 +116,7 @@ async function material(ctx, next) {
 //POST /api/updateMaterial
 async function updateMaterial(ctx, next) {
     const id = ctx.request.body.id;
+    const cleanedUrl = ctx.request.body.pic ? cleanOssUrl(ctx.request.body.pic) : '';
     const updateData = {
         name: ctx.request.body.name,
         type: parseInt(ctx.request.body.type),
@@ -128,7 +129,7 @@ async function updateMaterial(ctx, next) {
         shop: ctx.request.body.shop,
         note: ctx.request.body.note,
         link: ctx.request.body.link,
-        pic: ctx.request.body.pic
+        pic: cleanedUrl
     };
 
     try {
