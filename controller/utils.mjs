@@ -49,7 +49,7 @@ async function refreshSignedUrl(ctx, next) {
         let urls = [];
         for (let url of ctx.request.body.urls) {
             let objectName = getObjectNameFromUrl(url);
-            let new_url = await refreshImageUrl(objectName);
+            let new_url = await generateSignedUrl(objectName, url);
             urls.push(new_url);
         }
         ctx.body = {

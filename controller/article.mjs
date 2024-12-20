@@ -10,10 +10,10 @@ async function article(ctx, next) {
         where: {
             isDeleted: 0
         },
-        attributes: ['id', 'title', 'abbr', 'tags', 'classify', 'createdAt'],
+        attributes: ['id', 'title', 'abbr', 'tags', 'classify', 'createdAt', 'updatedAt'],
         offset: (page - 1) * size,
         limit: size,
-        order: [['createdAt', 'DESC']]
+        order: [['updatedAt', 'DESC']]
     });
 
     // 处理每一行的数据
@@ -26,6 +26,7 @@ async function article(ctx, next) {
             row.tags = [];
         }
         row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt);
+        row.updatedAt = utils.YYYYMMDDHHmmss(row.updatedAt);
         return row;
     });
 
