@@ -1,14 +1,20 @@
 import * as utils from 'utility';
 import { Articles } from '../orm.mjs';
-import { cleanOssUrl } from '../oss.mjs';
+import { Op } from 'sequelize';
 
 //GET /api/article
 async function article(ctx, next) {
     let page = parseInt(ctx.query.page) || 1;
     let size = parseInt(ctx.query.size) || 10;
+    let tag = ctx.query.tag || '';
     let {count, rows} = await Articles.findAndCountAll({
         where: {
-            isDeleted: 0
+            isDeleted: 0,
+            ...(tag ? {
+                tags: {
+                    [Op.substring]: tag
+                }
+            } : {})
         },
         attributes: ['id', 'title', 'abbr', 'tags', 'classify', 'createdAt', 'updatedAt'],
         offset: (page - 1) * size,
