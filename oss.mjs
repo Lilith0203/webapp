@@ -36,9 +36,9 @@ export async function generateSignedUrl(objectName, originalUrl = '') {
     try {
         // 从原始URL中提取图片处理参数
         let process = originalUrl ? extractImageProcess(originalUrl) : 'image/resize,w_800';
-        // 生成带签名的URL，设置15分钟有效期
+        // 生成带签名的URL，设置1小时有效期
         const url = await ossClient.signatureUrl(objectName, {
-            expires: 900, // 15分钟，单位秒
+            expires: 3600, // 1小时，单位秒
             process: process ? process : 'image/resize,w_800'
         });
         
