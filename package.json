@@ -17,6 +17,7 @@
     "koa-session": "^6.4.0",
     "koa-static": "^5.0.0",
     "mysql2": "^3.11.5",
+    "node-cache": "^5.1.2",
     "sequelize": "^6.37.5",
     "utility": "^2.1.0"
   },

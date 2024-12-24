@@ -1,15 +1,65 @@
 import * as utils from 'utility';
 import { Works } from '../orm.mjs';
 import { cleanOssUrls } from '../oss.mjs';
+import { Op } from 'sequelize';
+import cache from '../util/cache.mjs';
+
+// 缓存键前缀
+const CACHE_KEYS = {
+    ALL_TAGS: 'works:tags:all',
+    TAG_COUNT: 'works:tags:count:',
+};
+
+/**
+ * 从JSON字符串数组中提取所有标签
+ * @param {Array} items 包含tags字段的数组
+ * @returns {Set} 唯一标签集合
+ */
+function extractTags(items) {
+    const tagSet = new Set();
+    
+    items.forEach(item => {
+        try {
+            const tags = JSON.parse(item.tags || '[]');
+            if (Array.isArray(tags)) {
+                tags.forEach(tag => {
+                    if (tag) tagSet.add(tag);
+                });
+            }
+        } catch (e) {
+            console.error('Parse tags error:', e);
+        }
+    });
+    
+    return tagSet;
+}
 
 //GET /api/works
 async function works(ctx, next) {
-    let page = ctx.query.size ? parseInt(ctx.query.size) : 12;
+    let size = ctx.query.size ? parseInt(ctx.query.size) : 12;
+    let page = ctx.query.page ? parseInt(ctx.query.page) : 1;
+    let offset = (page - 1) * size;
+    //解析标签参数
+    let tags = ctx.query.tags ? ctx.query.tags.split(',').filter(Boolean) : [];
+    let where = {
+        isDeleted: 0
+    };
+    // 如果有标签筛选，添加标签条件
+    if (tags.length > 0) {
+        where = {
+            ...where,
+            [Op.and]: tags.map(tag => ({
+                tags: {
+                    [Op.like]: `%${tag}%`
+                }
+            }))
+        };
+    }
+
     let {count, rows} = await Works.findAndCountAll({
-        where: {
-            isDeleted: 0
-        },
-        limit: page,
+        where,
+        limit: size,
+        offset: offset,
         order: [['updatedAt', 'DESC']]
     });
 
@@ -30,7 +80,93 @@ async function works(ctx, next) {
     });
 
     ctx.body = {
-        works: rows
+        works: rows,
+        count: count
+    }
+}
+
+// GET /api/worktags
+async function works_tags(ctx, next) {
+    try {
+        // 尝试从缓存获取
+        let cachedData = await cache.get(CACHE_KEYS.ALL_TAGS);
+        if (cachedData) {
+            ctx.body = {
+                success: true,
+                data: cachedData
+            };
+            return;
+        }
+        // 获取所有未删除作品的标签
+        const works = await Works.findAll({
+            attributes: ['tags'],
+            where: {
+                tags: {
+                    [Op.not]: null,
+                    [Op.ne]: '[]'
+                },
+                isDeleted: 0
+            }
+        });
+
+        // 提取标签
+        const tagSet = extractTags(works);
+        
+        // 统计每个标签的使用次数
+        const tagCounts = {};
+        for (const tag of tagSet) {
+            // 尝试从缓存获取标签计数
+            // 尝试从缓存获取标签计数
+            const cacheKey = CACHE_KEYS.TAG_COUNT + tag;
+            let count = await cache.get(cacheKey);
+
+            if (count === null) {
+                count = await Works.count({
+                    where: {
+                        tags: {
+                            [Op.like]: `%${tag}%`
+                        },
+                        isDeleted: 0
+                    }
+                });
+                // 缓存标签计数，有效期1小时
+                await cache.set(cacheKey, count, 3600);
+            }
+            tagCounts[tag] = count;
+        }
+
+        // 按使用次数排序
+        const sortedTags = [...tagSet].sort((a, b) => tagCounts[b] - tagCounts[a]);
+        
+        const data = {
+            tags: sortedTags,
+            counts: tagCounts
+        };
+
+        // 缓存结果，有效期15分钟
+        await cache.set(CACHE_KEYS.ALL_TAGS, data, 900);
+
+        ctx.body = {
+            success: true,
+            data
+        };
+    } catch (error) {
+        console.error('Get works tags error:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '获取标签失败: ' + error.message
+        };
+    }
+}
+
+// 在作品更新、添加、删除时清除相关缓存
+async function clearWorksCache() {
+    try {
+        await cache.del(CACHE_KEYS.ALL_TAGS);
+        // 可以添加更多缓存清理逻辑
+    } catch (error) {
+        console.error('Clear works cache error:', error);
     }
 }
 
@@ -58,6 +194,7 @@ async function works_add(ctx, next) {
             createdAt: new Date(),
             updatedAt: new Date()
         });
+        await clearWorksCache();
 
         ctx.body = {
             success: true,
@@ -112,7 +249,7 @@ async function works_edit(ctx, next) {
         }, {
             where: { id: id }
         });
-
+        await clearWorksCache();
         ctx.body = {
             success: true,
             message: '作品更新成功'
@@ -134,6 +271,7 @@ async function works_delete(ctx, next) {
     }, {
         where: { id: id }
     });
+    await clearWorksCache();
 }
 
 //GET /api/works/:id
@@ -169,6 +307,7 @@ async function works_detail(ctx, next) {
 
 export default {
     'GET /api/works': works,
+    'GET /api/worktags': works_tags,
     'GET /api/works/:id': works_detail,
     'POST /api/works/edit': works_edit,
     'POST /api/works/add': works_add,

@@ -222,7 +222,7 @@ export const Works = sequelize.define('Works', {
         allowNull: true
     },
     pictures: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: true
     },
     tags: {
