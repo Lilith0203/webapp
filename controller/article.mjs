@@ -7,9 +7,16 @@ async function article(ctx, next) {
     let page = parseInt(ctx.query.page) || 1;
     let size = parseInt(ctx.query.size) || 10;
     let tag = ctx.query.tag || '';
+    let search = ctx.query.search ? ctx.query.search : '';
     let {count, rows} = await Articles.findAndCountAll({
         where: {
             isDeleted: 0,
+            ...(search ? {
+                [Op.or]: [
+                    { title: { [Op.like]: `%${search}%` } },
+                    { abbr: { [Op.like]: `%${search}%` } }
+                ]
+            } : {}),
             ...(tag ? {
                 tags: {
                     [Op.substring]: tag
