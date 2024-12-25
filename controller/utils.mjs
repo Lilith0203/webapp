@@ -2,6 +2,8 @@ import * as utils from 'utility';
 import { uploadToOSS, generateSignedUrl } from '../oss.mjs';
 import multer from '@koa/multer';
 import config from 'config'
+import { Comment, Articles, Works } from '../orm.mjs';
+import { Op } from 'sequelize';
 
 // 配置文件上传
 const upload = multer();
@@ -102,7 +104,97 @@ function getObjectNameFromUrl(url) {
     }
 }
 
+// POST /api/comment
+async function addComment(ctx, next) {
+    const { name, content, type, itemId, reply } = ctx.request.body;
+
+    try {
+        // 创建新评论
+        const comment = await Comment.create({
+            name,
+            content,
+            type,
+            itemId,
+            reply,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        });
+
+        ctx.body = {
+            success: true,
+            message: '评论成功',
+            data: {
+                comment
+            }
+        };
+    } catch (error) {
+        console.error('Add comment error:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '评论失败'
+        };
+    }
+}
+
+// GET /api/comments/:itemId
+async function getComments(ctx, next) {
+    const itemId = parseInt(ctx.params.itemId);
+    const type = ctx.query.type; // 文章或作品类型
+
+    try {
+        const comments = await Comment.findAll({
+            where: {
+                itemId: itemId,
+                type: type,
+                isDeleted: 0
+            },
+            order: [['createdAt', 'DESC']]
+        });
+
+        // 处理每一行的数据
+        const formattedComments = comments.map(comment => {
+            const row = comment.get({ plain: true });
+            row.createdAt = row.createdAt.toISOString(); // 格式化时间
+            return row;
+        });
+
+        // 组织评论和回复
+        const commentsMap = {};
+        formattedComments.forEach(comment => {
+            if (!comment.reply) {
+                // 顶级评论
+                comment.replies = []; // 初始化回复数组
+                commentsMap[comment.id] = comment; // 将顶级评论存入 map
+            } else {
+                // 回复评论
+                const parentComment = commentsMap[comment.reply];
+                if (parentComment) {
+                    parentComment.replies.push(comment); // 将回复添加到对应的顶级评论
+                }
+            }
+        });
+
+        // 只返回顶级评论
+        const topLevelComments = Object.values(commentsMap);
+
+        ctx.body = {
+            success: true,
+            comments: topLevelComments
+        };
+    } catch (error) {
+        console.error('Get comments error:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '获取评论失败'
+        };
+    }
+}
+
 export default {
     'POST /api/upload': [upload.single('file'), uploadFile],
-    'POST /api/oss-refresh': refreshSignedUrl
+    'POST /api/oss-refresh': refreshSignedUrl,
+    'GET /api/comments/:itemId': getComments,
+    'POST /api/comment': addComment
 }
