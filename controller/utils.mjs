@@ -2,11 +2,14 @@ import * as utils from 'utility';
 import { uploadToOSS, generateSignedUrl } from '../oss.mjs';
 import multer from '@koa/multer';
 import config from 'config'
-import { Comment, Articles, Works } from '../orm.mjs';
-import { Op } from 'sequelize';
+import { Comment} from '../orm.mjs';
+import ConfigSetting from '../util/config.mjs';
+import cache from '../util/cache.mjs';
 
 // 配置文件上传
 const upload = multer();
+
+const COMMENT_STATUS_KEY = 'comments:status';
 
 // 文件上传处理
 async function uploadFile(ctx, next) {
@@ -106,6 +109,14 @@ function getObjectNameFromUrl(url) {
 
 // POST /api/comment
 async function addComment(ctx, next) {
+    const commentStatus = await ConfigSetting.getConfig('comment');
+    if (commentStatus !== '1') {
+        ctx.body = {
+            success: false,
+            message: '评论关闭'
+        };
+        return;
+    }
     const { name, content, type, itemId, reply } = ctx.request.body;
 
     try {
@@ -155,7 +166,7 @@ async function getComments(ctx, next) {
         // 处理每一行的数据
         const formattedComments = comments.map(comment => {
             const row = comment.get({ plain: true });
-            row.createdAt = row.createdAt.toISOString(); // 格式化时间
+            row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt); // 格式化时间
             return row;
         });
 
@@ -192,9 +203,47 @@ async function getComments(ctx, next) {
     }
 }
 
+async function deleteComment(ctx, next) {
+    const id = parseInt(ctx.request.body.id);
+    const updateData = {
+        isDeleted: 1
+    };
+    
+    try {
+        // 查找文章
+        const comment = await Comment.findByPk(id);
+        if (!comment) {
+            ctx.status = 404;
+            ctx.body = {
+                success: false,
+                message: '评论不存在'
+            };
+            return;
+        }
+
+        // 更新文章
+        await Comment.update(updateData, {
+            where: { id: id }
+        });
+
+        ctx.body = {
+            success: true,
+            message: '评论删除成功'
+        };
+    } catch (error) {
+        console.error('Update comment error:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '评论删除失败'
+        };
+    }
+}
+
 export default {
     'POST /api/upload': [upload.single('file'), uploadFile],
     'POST /api/oss-refresh': refreshSignedUrl,
     'GET /api/comments/:itemId': getComments,
-    'POST /api/comment': addComment
+    'POST /api/comment': addComment,
+    'POST /api/comment_delete': deleteComment
 }

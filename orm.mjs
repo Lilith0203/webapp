@@ -278,3 +278,29 @@ export const Comment = sequelize.define('Comment', {
     //指定表名
     tableName: 'comment'
 });
+
+export const Control = sequelize.define('Control', {
+    //每一列的定义
+    id: {
+        primaryKey: true,
+        autoIncrement: true,
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    key: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    value: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    isDeleted: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    }
+}, {
+    //指定表名
+    tableName: 'control'
+});
