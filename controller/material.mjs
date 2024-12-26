@@ -1,10 +1,6 @@
 import { MaterialType } from '../orm.mjs'
 import { Material } from '../orm.mjs'
 import { cleanOssUrl } from '../oss.mjs';
-import multer from '@koa/multer';
-
-// 配置文件上传
-const upload = multer();
 
 function arrayToTree(arr, root) {
     const result = []

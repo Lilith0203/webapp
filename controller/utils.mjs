@@ -4,12 +4,9 @@ import multer from '@koa/multer';
 import config from 'config'
 import { Comment} from '../orm.mjs';
 import ConfigSetting from '../util/config.mjs';
-import cache from '../util/cache.mjs';
 
 // 配置文件上传
 const upload = multer();
-
-const COMMENT_STATUS_KEY = 'comments:status';
 
 // 文件上传处理
 async function uploadFile(ctx, next) {
