@@ -1,0 +1,95 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Santa Claus Jump</title>
+    <link href="game.css" rel="stylesheet" type="text/css">
+    <script type="text/javascript" src="game.js" defer="defer"></script>
+</head>
+<body>
+    <div id="game">
+        <div id="gameUI">
+            <div id="gameReady" style="display:none">
+                <p>Click me and Jump!</p>
+                <a id="gamePlay" href="">Play</a>
+            </div>
+            <div id="gameStats" style="display:none">
+                <p>Score: <br/><span id="gameScore"></span></p>
+            </div>
+            <div id="mute"></div>
+            <div id="gameComplete" style="display:none">
+                <div id="rank_wrap">
+                    <ul id="rank">
+                        <li>
+                            <span class="position"></span>
+                            <span class="name"></span>
+                            <span class="score"></span>
+                        </li>
+                        <li>
+                            <span class="position"></span>
+                            <span class="name"></span>
+                            <span class="score"></span>
+                        </li>
+                        <li>
+                            <span class="position"></span>
+                            <span class="name"></span>
+                            <span class="score"></span>
+                        </li>
+                        <li>
+                            <span class="position"></span>
+                            <span class="name"></span>
+                            <span class="score"></span>
+                        </li>
+                        <li>
+                            <span class="position"></span>
+                            <span class="name"></span>
+                            <span class="score"></span>
+                        </li>
+                        <li>
+                            <span class="position"></span>
+                            <span class="name"></span>
+                            <span class="score"></span>
+                        </li>
+                        <li>
+                            <span class="position">...</span>
+                            <span class="name">...</span>
+                            <span class="score">...</span>
+                        </li>
+                        <li>
+                            <span class="position"></span>
+                            <span class="name"></span>
+                            <span class="score"></span>
+                        </li>
+                        <li class="myscore">
+                            <span class="position" id="myRank"></span>
+                            <span class="name" id="userName"></span>
+                            <span class="score" id="myScore"></span>
+                        </li>
+                    </ul>
+                    <div id="gameControl">
+                        <a href="" id="gameAgain" class="button">Again</a>
+                        <a href="" class="button">Back</a>
+                    </div>
+                </div>
+            </div>
+            <div id="popup" class="hide">
+                <form action="" method="" >
+                    <div id="firstGame">
+                        <p>请留下大侠行走江湖的名字。</p>
+                        <input type="text" name="playerName" class="text" />
+                        <input type="submit" value="确认" id="submitName" />
+                    </div>
+                    <div id="contact" class="hide">
+                        <p>机智的<span id="username">XXX</span>，您很有可能获得由冰岩作坊送出的圣诞礼物！请留下您的联系方式以便我们将礼物送到您的手中~最终获奖结果请留意网站公告哦~~</p>
+                        <label for="">您的爪机：</label><input type="text" name="playerTel" class="text" />
+                        <input type="submit" value="提交" id="submitTel" />
+                    </div>
+                </form>
+            </div>
+        </div>
+        <canvas id="gameCanvas" width="800" height="600">Your browser does not support HTML5 Canvas.</canvas>
+    </div>
+    <!--<script type="text/javascript" src="userdata.js"></script>-->
+</body>
+</html>

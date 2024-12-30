@@ -1,0 +1,143 @@
+body{
+    padding: 0;
+    margin: 0;
+    background-color: #000;
+    font-family: "Microsoft yahei";
+}
+p,h1{
+    margin: 0;
+    padding: 0;
+}
+
+/******************* select.html ******************/
+.level{
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+#select #container{
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 1280px;
+    height: 717px;
+    margin-left: -640px;
+    background: url(../image/select.png) no-repeat;
+}
+
+#factory1{
+    background: url(../image/factory1.png) no-repeat right;
+    width: 273px;
+    height: 213px;
+    left: 185px;
+    top: 216px;
+}
+
+#factory2{
+    background: url(../image/factory2.png) no-repeat;
+    width: 231px;
+    height: 279px;
+    left: 542px;
+    top: 230px;
+}
+#factory2_lock{
+    position: absolute;
+    background: url(../image/factory2.png) no-repeat;
+    width: 231px;
+    height: 279px;
+    left: 542px;
+    top: 230px;
+}
+
+#factory3{
+    background: url(../image/factory3.png) no-repeat;
+    width: 200px;
+    height: 237px;
+    right: 190px;
+    top: 190px;
+}
+#factory3_lock{
+    position: absolute;
+    background: url(../image/factory3.png) no-repeat;
+    width: 200px;
+    height: 237px;
+    right: 190px;
+    top: 190px;
+}
+
+#factory1,#factory2,#factory3{
+    position: absolute;
+    cursor: pointer;
+    background-position: right;
+}
+
+.disappear{
+    opacity: 0;
+    transition: opacity 1s linear;
+}
+
+#foot1{
+    width: 150px;
+    height: 80px;
+    position: absolute;
+    top:400px;
+    left:415px;
+}
+
+.footprint{
+    width: 34px;
+    height:22px;
+    background: transparent url(../image/footprint.png) no-repeat;
+    position: absolute;
+    opacity: 0;
+}
+
+#foot1 .footprint:nth-child(2){
+    left: 20px;
+    top: 30px;
+}
+#foot1 .footprint:nth-child(3){
+    left: 60px;
+    top: 15px;
+}
+#foot1 .footprint:nth-child(4){
+    left: 85px;
+    top: 45px;
+}
+#foot1 .footprint:last-child{
+    right: 0px;
+    top: 25px;
+}
+
+#foot2{
+    width: 150px;
+    height: 80px;
+    position: absolute;
+    top:440px;
+    left:775px;
+}
+#foot2 .footprint{
+    background-position: right;
+}
+
+#foot2 .footprint:nth-child(2){
+    left: 40px;
+    top: 10px;
+}
+#foot2 .footprint:nth-child(3){
+    left: 45px;
+    top: -20px;
+}
+#foot2 .footprint:nth-child(4){
+    left: 85px;
+    top: -5px;
+}
+#foot2 .footprint:last-child{
+    right: 30px;
+    top: -40px;
+}
+
+.hide{
+    display: none;
+}

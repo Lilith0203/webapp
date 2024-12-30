@@ -1,0 +1,284 @@
+#container{
+	background: url("../image/scene2.png") no-repeat;
+	background-size: 100%;
+}
+
+.fruit{
+    position: absolute;
+    cursor: pointer;
+}
+
+#pear{
+	background: url("../image/pear.png") no-repeat;
+	width: 79px;
+	height: 81px;
+	top: 276px;
+	left: 1200px;
+}
+
+#apple{
+	background: url("../image/apple.png") no-repeat;
+	width: 91px;
+	height: 91px;
+	top: 420px;
+	left: 1203px;
+}
+
+#blueberry{
+	background: url("../image/blue_berry.png") no-repeat;
+	width: 125px;
+	height: 142px;
+	top: 493px;
+	left: 817px;
+}
+
+#green{
+    background: url("../image/green.png") no-repeat;
+    width: 85px;
+    height: 78px;
+    top: 618px;
+    left: 680px;
+}
+
+#fruits{
+    width: 658px;
+    height: 459px;
+    position: absolute;
+    right: 0;
+    bottom: 4px;
+    background: transparent url(../image/fruits.png) no-repeat;
+    z-index:2;
+}
+
+#squeezer{
+	position: absolute;
+	background: url("../image/squeezer.png") no-repeat;
+	width: 246px;
+	height: 317px;
+	bottom: 190px;
+	right: 127px;
+    z-index: 3;
+}
+#rock{
+	position: absolute;
+	background: url("../image/rock.png") no-repeat;
+	width: 37px;
+	height: 65px;
+	top: 45px;
+	left: 0;
+	cursor: pointer;
+}
+
+#fruit_array{
+    z-index: 4;
+    width: 160px;
+    height: 40px;
+    position: absolute;
+    top: 395px;
+    right: 168px;
+    background-color:rgba(255,255,255,0.8);
+    border: 1px solid #fff;
+    border-radius: 10px;
+}
+
+#fruit_array span{
+    padding: 0 10px;
+    font-size: 16px;
+    width: 200px;
+    line-height: 1.6;
+    position: absolute;
+    top: -30px;
+    left: -30px;
+    display: none;
+    color: #fff;
+    background-color: #000;
+}
+
+#fruit_array:hover span{
+    display: block;
+}
+
+#fruit_array div{
+    margin: 4px 5px;
+    width: 30px;
+    height: 32px;
+    background-size: 200%;
+    float: left;
+    cursor: pointer;
+    opacity: 0.4;
+}
+
+#apple_item{
+    background: transparent url(../image/apple.png) no-repeat;
+}
+#pear_item{
+    background: transparent url(../image/pear.png) no-repeat;
+}
+#blueberry_item{
+    background: transparent url(../image/blue_berry.png) no-repeat;
+}
+#greeny_item{
+    background: transparent url(../image/green.png) no-repeat;
+}
+
+#clown{
+	position: absolute;
+	width: 588px;
+	height: 653px;
+    top: 30px;
+    left: 10px;
+    background: transparent url(../image/clown.png) no-repeat;
+}
+#eye{
+	position: absolute;
+	width: 100px;
+	height: 100px;
+    background-color: #8b0ace;
+	top: 320px;
+	left: 180px;
+    transition: background-color 2s linear;
+}
+#container .green{
+    background-color: #6de444;
+}
+#container .yellow{
+    background-color: #efe355;
+}
+#container .red{
+    background-color: #f50707;
+}
+#container .orange{
+    background-color: #e76107;
+}
+
+#boil{
+    width: 240px;
+    height: 300px;
+    position: absolute;
+    top: 210px;
+    left: 230px;
+    /*background-color: rgba(0,0,0,0.5);*/
+}
+
+.bubbles{
+    width: 61px;
+    height: 61px;
+    background: transparent url(../image/bubbles.png) no-repeat;
+    background-size: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.bubbles:first-child{
+    top: 240px;
+    left: 80px;
+    width: 40px;
+}
+.bubbles:nth-child(2){
+    top: 180px;
+    left: 180px;
+    width: 50px;
+}
+.bubbles:nth-child(3){
+    top: 120px;
+    left: 120px;
+    width: 30px;
+}
+.bubbles:nth-child(4){
+    top: 60px;
+    left: 20px;
+    width: 60px;
+}
+.bubbles:last-child{
+    top: 0px;
+    left: 100px;
+    width: 40px;
+}
+
+#liquid{
+    position: absolute;
+    z-index: 3;
+    width: 200px;
+    height: 152px;
+    background: url("../image/bottles.png") no-repeat;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+}
+
+#tools{
+    background-color: rgba(172,137,199,.8);
+}
+
+.item{
+  background: url(../image/bottles.png) no-repeat;
+    background-size: 500%;
+}
+
+#purple_item{
+	background-position: 0;
+}
+#green_item{
+	background-position: -60px;
+}
+#yellow_item{
+    background-position: -120px;
+}
+#red_item{
+    background-position: -180px;
+}
+#orange_item{
+    background-position: -240px;
+}
+
+#squeezer .pull_down{
+	left: 40px;
+	top: 54px;
+	-webkit-transform: scaleX(-1) rotate(-15deg);
+	transform: scaleX(-1) rotate(-15deg);
+}
+
+#bubble{
+	background-color: rgba(172,137,199,.8);
+}
+
+#people{
+	background: url(../image/people_s2.png) no-repeat;
+	width: 214px;
+	height: 263px;
+}
+
+#pic{
+    width: 200px;
+    height: 152px;
+    background: transparent url(../image/bottles.png) no-repeat;
+    margin: 0 100px;
+}
+
+#pass_thing{
+    position: absolute;
+    width: 233px;
+    height: 165px;
+    margin-left: -116px;
+    left: 50%;
+    top:295px;
+    background: transparent url(../image/lotus.png) no-repeat;
+}
+
+#paper{
+    cursor: pointer;
+    position: absolute;
+    width: 217px;
+    width: 100px;
+    height: 103px;
+    background: transparent url(../image/paper.png) no-repeat;
+    background-position: bottom;
+    bottom: 20px;
+    left: 460px;
+}
+#container .paper_open{
+    width: 217px;
+    left: 400px;
+    background-position: top;
+}
