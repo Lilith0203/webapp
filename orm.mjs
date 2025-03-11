@@ -304,3 +304,37 @@ export const Control = sequelize.define('Control', {
     //指定表名
     tableName: 'control'
 });
+
+export const Color = sequelize.define('Color', {
+    //每一列的定义
+    id: {
+        primaryKey: true,
+        autoIncrement: true,
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    category: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    set: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    code: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    isDeleted: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    }
+}, {
+    //指定表名
+    tableName: 'color'
+});
