@@ -63,10 +63,21 @@ async function addColor(ctx, next) {
 // GET /api/colors - 获取颜色列表
 async function getColors(ctx, next) {
     try {
+        // 获取查询参数
+        const { category } = ctx.query;
+
+        // 构建查询条件
+        const whereCondition = {
+            isDeleted: 0
+        };
+
+        // 如果指定了类别，添加到查询条件中
+        if (category !== undefined) {
+            whereCondition.category = category;
+        }
+
         const colors = await Color.findAll({
-            where: {
-                isDeleted: 0
-            },
+            where: whereCondition,
             order: [['updatedAt', 'DESC']]
         });
 
