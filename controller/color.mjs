@@ -254,10 +254,214 @@ async function editColor(ctx, next) {
     }
 }
 
+// POST /api/color/update-set - 更新颜色合集
+async function updateColorSet(ctx, next) {
+    const { category, oldSet, colors } = ctx.request.body;
+
+    // 验证输入
+    if (!category || !oldSet || !colors || !Array.isArray(colors)) {
+        ctx.status = 400;
+        ctx.body = {
+            success: false,
+            message: '类别、原合集名称和颜色数组不能为空'
+        };
+        return;
+    }
+
+    try {
+        // 验证所有颜色代码格式
+        for (const color of colors) {
+            if (!color.code || !/^#[0-9A-Fa-f]{6}$/.test(color.code)) {
+                ctx.status = 400;
+                ctx.body = {
+                    success: false,
+                    message: `颜色 ${color.name || ''} 的代码格式无效，请使用十六进制颜色代码（例如：#FF0000）`
+                };
+                return;
+            }
+        }
+
+        // 检查颜色代码是否有重复
+        const colorCodes = colors.map(c => c.code);
+        const uniqueColorCodes = new Set(colorCodes);
+        if (colorCodes.length !== uniqueColorCodes.size) {
+            ctx.status = 400;
+            ctx.body = {
+                success: false,
+                message: '颜色代码不能重复'
+            };
+            return;
+        }
+
+        // 获取原合集中的所有颜色
+        const existingColors = await Color.findAll({
+            where: {
+                category,
+                set: oldSet,
+                isDeleted: 0
+            }
+        });
+
+        // 获取新提交的颜色ID列表
+        const newColorIds = colors.filter(c => c.id).map(c => c.id);
+
+        // 找出需要删除的颜色（在原合集中存在但新提交的列表中不存在的颜色）
+        const colorsToDelete = existingColors.filter(
+            color => !newColorIds.includes(color.id)
+        );
+
+        // 软删除不再需要的颜色
+        for (const color of colorsToDelete) {
+            await Color.update(
+                {
+                    isDeleted: 1,
+                    updatedAt: new Date()
+                },
+                {
+                    where: {
+                        id: color.id
+                    }
+                }
+            );
+        }
+
+        // 批量更新或创建颜色
+        for (const color of colors) {
+            if (color.id) {
+                // 更新已存在的颜色
+                await Color.update(
+                    {
+                        category,
+                        set: color.set,
+                        name: color.name,
+                        code: color.code,
+                        updatedAt: new Date()
+                    },
+                    {
+                        where: {
+                            id: color.id,
+                            isDeleted: 0
+                        }
+                    }
+                );
+            } else {
+                // 创建新颜色
+                await Color.create({
+                    category,
+                    set: color.set,
+                    name: color.name,
+                    code: color.code,
+                    isDeleted: 0,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                });
+            }
+        }
+
+        // 获取更新后的颜色列表
+        const updatedColors = await Color.findAll({
+            where: {
+                category,
+                set: colors[0].set, // 使用新的合集名称
+                isDeleted: 0
+            },
+            order: [['updatedAt', 'DESC']]
+        });
+
+        ctx.body = {
+            success: true,
+            message: '颜色合集更新成功',
+            data: updatedColors.map(color => ({
+                id: color.id,
+                category: color.category,
+                set: color.set,
+                name: color.name,
+                code: color.code,
+                createdAt: color.createdAt,
+                updatedAt: color.updatedAt
+            }))
+        };
+    } catch (error) {
+        console.error('更新颜色合集失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '更新颜色合集失败'
+        };
+    }
+}
+
+// POST /api/color/delete-set - 删除颜色合集
+async function deleteColorSet(ctx, next) {
+    const { category, set } = ctx.request.body;
+
+    // 验证输入
+    if (!category || !set) {
+        ctx.status = 400;
+        ctx.body = {
+            success: false,
+            message: '类别和合集名称不能为空'
+        };
+        return;
+    }
+
+    try {
+        // 检查合集是否存在
+        const existingColors = await Color.findAll({
+            where: {
+                category,
+                set,
+                isDeleted: 0
+            }
+        });
+
+        if (existingColors.length === 0) {
+            ctx.status = 404;
+            ctx.body = {
+                success: false,
+                message: '颜色合集不存在或已被删除'
+            };
+            return;
+        }
+
+        // 软删除整个合集的颜色
+        await Color.update(
+            {
+                isDeleted: 1,
+                updatedAt: new Date()
+            },
+            {
+                where: {
+                    category,
+                    set,
+                    isDeleted: 0
+                }
+            }
+        );
+
+        ctx.body = {
+            success: true,
+            message: '颜色合集删除成功',
+            data: {
+                deletedCount: existingColors.length
+            }
+        };
+    } catch (error) {
+        console.error('删除颜色合集失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '删除颜色合集失败'
+        };
+    }
+}
+
 // 更新导出的接口
 export default {
     'GET /api/colors': getColors,
     'POST /api/color/delete': deleteColor,
     'POST /api/color/add': addColor,
-    'POST /api/color/edit': editColor
+    'POST /api/color/edit': editColor,
+    'POST /api/color/update-set': updateColorSet,
+    'POST /api/color/delete-set': deleteColorSet
 };
