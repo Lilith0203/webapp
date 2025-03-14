@@ -70,9 +70,11 @@ async function works(ctx, next) {
         try {
             row.tags = JSON.parse(row.tags || '[]');
             row.pictures = JSON.parse(row.pictures || '[]');
+            row.materials = JSON.parse(row.materials || '[]');
         } catch (e) {
             row.tags = [];
             row.pictures = [];
+            row.materials = [];
         }
         row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt);
         row.updatedAt = utils.YYYYMMDDHHmmss(row.updatedAt);
@@ -184,6 +186,11 @@ async function works_add(ctx, next) {
         const pictures = Array.isArray(workData.pictures) 
             ? JSON.stringify(workData.pictures)
             : workData.pictures;
+            
+        // 处理 materials 数组
+        const materials = Array.isArray(workData.materials) 
+            ? JSON.stringify(workData.materials)
+            : workData.materials;
 
         // 创建新文章
         const works = await Works.create({
@@ -191,6 +198,8 @@ async function works_add(ctx, next) {
             description: workData.description,
             pictures: pictures,
             tags: tags,
+            materials: materials,
+            price: workData.price || 0,
             createdAt: new Date(),
             updatedAt: new Date()
         });
@@ -238,6 +247,11 @@ async function works_edit(ctx, next) {
         const pictures = Array.isArray(updateData.pictures) 
             ? JSON.stringify(updateData.pictures)
             : updateData.pictures;
+            
+        // 处理 materials 数组
+        const materials = Array.isArray(updateData.materials) 
+            ? JSON.stringify(updateData.materials)
+            : updateData.materials;
 
         // 更新文章
         await Works.update({
@@ -245,6 +259,8 @@ async function works_edit(ctx, next) {
             description: updateData.description,
             pictures: pictures,
             tags: tags,
+            materials: materials,
+            price: updateData.price || 0,
             updatedAt: new Date()
         }, {
             where: { id: id }
@@ -288,9 +304,11 @@ async function works_detail(ctx, next) {
         try {
             workData.tags = JSON.parse(workData.tags || '[]');
             workData.pictures = JSON.parse(workData.pictures || '[]');
+            workData.materials = JSON.parse(workData.materials || '[]');
         } catch (e) {
             workData.tags = [];
             workData.pictures = [];
+            workData.materials = [];
         }
         workData.updatedAt = utils.YYYYMMDDHHmmss(workData.updatedAt);
         

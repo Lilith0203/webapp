@@ -1,6 +1,7 @@
 import { MaterialType } from '../orm.mjs'
 import { Material } from '../orm.mjs'
 import { cleanOssUrl } from '../oss.mjs';
+import { Op } from 'sequelize';
 
 function arrayToTree(arr, root) {
     const result = []
@@ -98,12 +99,26 @@ async function updateMaterialType(ctx, next) {
 
 //POST /api/material
 async function material(ctx, next) {
+    // 获取请求体中的 ids 参数
+    const { ids } = ctx.request.body;
+    
+    // 构建查询条件
+    let whereCondition = {
+        isDeleted: 0
+    };
+    
+    // 如果提供了 ids 数组，添加到查询条件中
+    if (ids && Array.isArray(ids) && ids.length > 0) {
+        whereCondition.id = {
+            [Op.in]: ids
+        };
+    }
+    
     let materials = await Material.findAll({
-        where: {
-            isDeleted: 0
-        },
+        where: whereCondition,
         order: [['updatedAt', 'DESC']]
     });
+    
     ctx.body = {
         materials: materials,
     }

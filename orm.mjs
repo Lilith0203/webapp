@@ -229,6 +229,10 @@ export const Works = sequelize.define('Works', {
         type: DataTypes.STRING,
         allowNull: true
     },
+    materials: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
     isDeleted: {
         type: DataTypes.INTEGER,
         allowNull: false,
