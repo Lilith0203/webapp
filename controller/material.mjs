@@ -99,8 +99,8 @@ async function updateMaterialType(ctx, next) {
 
 //POST /api/material
 async function material(ctx, next) {
-    // 获取请求体中的 ids 参数
-    const { ids } = ctx.request.body;
+    // 获取请求体中的参数
+    const { ids, showAll } = ctx.request.body;
     
     // 构建查询条件
     let whereCondition = {
@@ -111,6 +111,18 @@ async function material(ctx, next) {
     if (ids && Array.isArray(ids) && ids.length > 0) {
         whereCondition.id = {
             [Op.in]: ids
+        };
+    }
+    
+    // 默认只返回库存不为 0 的材料，除非 showAll 为 true 或者指定了 ids
+    if (!showAll && !(ids && ids.length > 0)) {
+        whereCondition.stock = {
+            [Op.and]: [
+                { [Op.ne]: '0' },
+                { [Op.ne]: '无' },
+                { [Op.ne]: '' },
+                { [Op.not]: null }
+            ]
         };
     }
     
