@@ -283,6 +283,43 @@ export const Comment = sequelize.define('Comment', {
     tableName: 'comment'
 });
 
+export const Interaction = sequelize.define('interaction', {
+    //每一列的定义
+    id: {
+        primaryKey: true,
+        autoIncrement: true,
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    type: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 1
+    },
+    itemId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    like: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
+    weight: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
+    isDeleted: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    }
+}, {
+    //指定表名
+    tableName: 'interaction'
+});
+
 export const Control = sequelize.define('Control', {
     //每一列的定义
     id: {

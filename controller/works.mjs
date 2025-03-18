@@ -39,11 +39,17 @@ async function works(ctx, next) {
     let size = ctx.query.size ? parseInt(ctx.query.size) : 12;
     let page = ctx.query.page ? parseInt(ctx.query.page) : 1;
     let offset = (page - 1) * size;
-    //解析标签参数
+    
+    // 解析标签参数
     let tags = ctx.query.tags ? ctx.query.tags.split(',').filter(Boolean) : [];
+    
+    // 获取关键词参数
+    let keyword = ctx.query.keyword ? ctx.query.keyword.trim() : '';
+    
     let where = {
         isDeleted: 0
     };
+    
     // 如果有标签筛选，添加标签条件
     if (tags.length > 0) {
         where = {
@@ -53,6 +59,25 @@ async function works(ctx, next) {
                     [Op.like]: `%${tag}%`
                 }
             }))
+        };
+    }
+    
+    // 如果有关键词，添加名称或描述的搜索条件
+    if (keyword) {
+        where = {
+            ...where,
+            [Op.or]: [
+                {
+                    name: {
+                        [Op.like]: `%${keyword}%`
+                    }
+                },
+                {
+                    description: {
+                        [Op.like]: `%${keyword}%`
+                    }
+                }
+            ]
         };
     }
 
