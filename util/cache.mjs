@@ -1,4 +1,5 @@
 import NodeCache from 'node-cache';
+import Redis from 'ioredis';
 import config from 'config';
 
 class CacheManager {

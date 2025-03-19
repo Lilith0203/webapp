@@ -1,21 +1,26 @@
 import { Interaction } from '../orm.mjs';
 import { Op } from 'sequelize';
+import cache from '../util/cache.mjs';
 
-// POST /api/interaction/like - 点赞功能
+// POST /api/interaction/like - 点赞/取消点赞功能
 async function likeItem(ctx, next) {
-    const { type, itemId } = ctx.request.body;
+    const { type, itemId, clientId } = ctx.request.body;
 
     // 验证输入
-    if (!type || !itemId) {
+    if (!type || !itemId || !clientId) {
         ctx.status = 400;
         ctx.body = {
             success: false,
-            message: '类型和项目ID不能为空'
+            message: '类型、项目ID和客户端ID不能为空'
         };
         return;
     }
 
     try {
+        // 使用现有的缓存系统检查用户是否已点赞
+        const likeKey = `like:${clientId}:${type}:${itemId}`;
+        const hasLiked = await cache.get(likeKey);
+
         // 查找是否已存在该项目的交互记录
         let interaction = await Interaction.findOne({
             where: {
@@ -25,8 +30,54 @@ async function likeItem(ctx, next) {
             }
         });
 
-        if (interaction) {
-            // 如果已存在，则增加点赞数
+        if (!interaction) {
+            // 如果不存在交互记录，创建新记录
+            interaction = await Interaction.create({
+                type,
+                itemId,
+                like: 0,
+                weight: 0,
+                isDeleted: 0,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            });
+        }
+
+        if (hasLiked) {
+            // 如果已点赞，则取消点赞
+            await Interaction.update(
+                {
+                    like: Math.max(0, interaction.like - 1), // 确保点赞数不小于0
+                    updatedAt: new Date()
+                },
+                {
+                    where: {
+                        id: interaction.id
+                    }
+                }
+            );
+
+            // 从缓存中删除点赞记录
+            await cache.del(likeKey);
+
+            // 获取更新后的交互数据
+            interaction = await Interaction.findOne({
+                where: {
+                    id: interaction.id
+                }
+            });
+
+            ctx.body = {
+                success: true,
+                message: '取消点赞成功',
+                data: {
+                    like: interaction.like,
+                    weight: interaction.weight,
+                    hasLiked: false
+                }
+            };
+        } else {
+            // 如果未点赞，则添加点赞
             await Interaction.update(
                 {
                     like: interaction.like + 1,
@@ -38,42 +89,33 @@ async function likeItem(ctx, next) {
                     }
                 }
             );
-        } else {
-            // 如果不存在，则创建新记录
-            await Interaction.create({
-                type,
-                itemId,
-                like: 1,
-                weight: 0,
-                isDeleted: 0,
-                createdAt: new Date(),
-                updatedAt: new Date()
+
+            // 在缓存中记录用户已点赞，设置30天过期
+            await cache.set(likeKey, '1', 30 * 24 * 60 * 60);
+
+            // 获取更新后的交互数据
+            interaction = await Interaction.findOne({
+                where: {
+                    id: interaction.id
+                }
             });
+
+            ctx.body = {
+                success: true,
+                message: '点赞成功',
+                data: {
+                    like: interaction.like,
+                    weight: interaction.weight,
+                    hasLiked: true
+                }
+            };
         }
-
-        // 获取更新后的交互数据
-        interaction = await Interaction.findOne({
-            where: {
-                type,
-                itemId,
-                isDeleted: 0
-            }
-        });
-
-        ctx.body = {
-            success: true,
-            message: '点赞成功',
-            data: {
-                like: interaction.like,
-                weight: interaction.weight
-            }
-        };
     } catch (error) {
-        console.error('点赞失败:', error);
+        console.error('点赞/取消点赞失败:', error);
         ctx.status = 500;
         ctx.body = {
             success: false,
-            message: '点赞失败'
+            message: '操作失败'
         };
     }
 }
@@ -155,9 +197,9 @@ async function recommendItem(ctx, next) {
     }
 }
 
-// GET /api/interaction/:type/:itemId - 获取交互数据
+// GET /api/interaction/:type/:itemId/:clientId - 获取交互数据
 async function getInteraction(ctx, next) {
-    const { type, itemId } = ctx.params;
+    const { type, itemId, clientId } = ctx.params;
 
     // 验证输入
     if (!type || !itemId) {
@@ -179,12 +221,21 @@ async function getInteraction(ctx, next) {
             }
         });
 
+        // 检查用户是否已点赞
+        let hasLiked = false;
+        if (clientId) {
+            // 先从缓存中检查
+            const likeKey = `like:${clientId}:${type}:${itemId}`;
+            hasLiked = !!(await cache.get(likeKey));
+        }
+
         if (interaction) {
             ctx.body = {
                 success: true,
                 data: {
                     like: interaction.like,
-                    weight: interaction.weight
+                    weight: interaction.weight,
+                    hasLiked
                 }
             };
         } else {
@@ -192,7 +243,8 @@ async function getInteraction(ctx, next) {
                 success: true,
                 data: {
                     like: 0,
-                    weight: 0
+                    weight: 0,
+                    hasLiked
                 }
             };
         }
@@ -210,5 +262,5 @@ async function getInteraction(ctx, next) {
 export default {
     'POST /api/interaction/like': likeItem,
     'POST /api/interaction/recommend': recommendItem,
-    'GET /api/interaction/:type/:itemId': getInteraction
+    'GET /api/interaction/:type/:itemId/:clientId?': getInteraction
 }; 
