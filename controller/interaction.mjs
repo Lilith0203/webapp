@@ -1,6 +1,7 @@
-import { Interaction } from '../orm.mjs';
+import { Interaction, Works, Articles } from '../orm.mjs';
 import { Op } from 'sequelize';
 import cache from '../util/cache.mjs';
+import * as utils from 'utility';
 
 // POST /api/interaction/like - 点赞/取消点赞功能
 async function likeItem(ctx, next) {
@@ -258,9 +259,169 @@ async function getInteraction(ctx, next) {
     }
 }
 
+// GET /api/recommended-items - 获取推荐项目列表
+async function getRecommendedItems(ctx, next) {
+    let size = ctx.query.size ? parseInt(ctx.query.size) : 12;
+    let page = ctx.query.page ? parseInt(ctx.query.page) : 1;
+    let type = ctx.query.type ? parseInt(ctx.query.type) : 2; // 默认为作品类型(2)
+    let offset = (page - 1) * size;
+
+    try {
+        // 从交互表中获取被推荐的项目ID列表
+        const recommendedItems = await Interaction.findAll({
+            where: {
+                type,
+                weight: {
+                    [Op.gt]: 0 // 权重大于0
+                },
+                isDeleted: 0
+            },
+            order: [
+                ['weight', 'DESC'], // 首先按权重降序排序
+                ['updatedAt', 'DESC'] // 其次按更新时间降序排序
+            ],
+            limit: size,
+            offset: offset
+        });
+
+        // 提取项目ID列表
+        const itemIds = recommendedItems.map(item => item.itemId);
+        
+        // 如果没有推荐项目，直接返回空数组
+        if (itemIds.length === 0) {
+            ctx.body = {
+                success: true,
+                data: {
+                    items: [],
+                    count: 0,
+                    type
+                }
+            };
+            return;
+        }
+
+        let items = [];
+        let processedItems = [];
+
+        // 根据类型获取不同的数据
+        if (type === 2) { // 作品类型
+            // 获取作品详情
+            items = await Works.findAll({
+                where: {
+                    id: {
+                        [Op.in]: itemIds
+                    },
+                    isDeleted: 0
+                }
+            });
+
+            // 处理作品数据
+            processedItems = items.map(item => {
+                const itemData = item.get({ plain: true });
+                
+                // 解析 JSON 字符串为数组
+                try {
+                    itemData.tags = JSON.parse(itemData.tags || '[]');
+                    itemData.pictures = JSON.parse(itemData.pictures || '[]');
+                    itemData.materials = JSON.parse(itemData.materials || '[]');
+                } catch (e) {
+                    itemData.tags = [];
+                    itemData.pictures = [];
+                    itemData.materials = [];
+                }
+                
+                // 格式化日期
+                itemData.createdAt = utils.YYYYMMDDHHmmss(itemData.createdAt);
+                itemData.updatedAt = utils.YYYYMMDDHHmmss(itemData.updatedAt);
+                
+                // 添加权重信息和原始更新时间（用于排序）
+                const interaction = recommendedItems.find(rec => rec.itemId === itemData.id);
+                itemData.weight = interaction ? interaction.weight : 0;
+                itemData._interactionUpdatedAt = interaction ? interaction.updatedAt : new Date(0);
+                
+                return itemData;
+            });
+        } else if (type === 1) { // 文章类型
+            // 获取文章详情
+            items = await Articles.findAll({
+                where: {
+                    id: {
+                        [Op.in]: itemIds
+                    },
+                    isDeleted: 0
+                }
+            });
+            
+            // 处理文章数据
+            processedItems = items.map(item => {
+                const itemData = item.get({ plain: true });
+                
+                // 解析 JSON 字符串为数组（如果有）
+                try {
+                    if (itemData.tags) itemData.tags = JSON.parse(itemData.tags || '[]');
+                    if (itemData.pictures) itemData.pictures = JSON.parse(itemData.pictures || '[]');
+                } catch (e) {
+                    itemData.tags = itemData.tags || [];
+                    itemData.pictures = itemData.pictures || [];
+                }
+                
+                // 格式化日期
+                itemData.createdAt = utils.YYYYMMDDHHmmss(itemData.createdAt);
+                itemData.updatedAt = utils.YYYYMMDDHHmmss(itemData.updatedAt);
+                
+                // 添加权重信息和原始更新时间（用于排序）
+                const interaction = recommendedItems.find(rec => rec.itemId === itemData.id);
+                itemData.weight = interaction ? interaction.weight : 0;
+                itemData._interactionUpdatedAt = interaction ? interaction.updatedAt : new Date(0);
+                
+                return itemData;
+            });
+        }
+        // 可以根据需要添加更多类型的处理...
+
+        // 按照原始推荐顺序排序（先按权重，再按更新时间）
+        const sortedItems = itemIds.map(id => 
+            processedItems.find(item => item.id === id)
+        ).filter(Boolean); // 过滤掉可能不存在的项目
+
+        // 删除临时排序字段
+        sortedItems.forEach(item => {
+            delete item._interactionUpdatedAt;
+        });
+
+        // 获取总推荐项目数量
+        const totalCount = await Interaction.count({
+            where: {
+                type,
+                weight: {
+                    [Op.gt]: 0
+                },
+                isDeleted: 0
+            }
+        });
+
+        ctx.body = {
+            success: true,
+            data: {
+                items: sortedItems,
+                count: totalCount,
+                type
+            }
+        };
+    } catch (error) {
+        console.error('获取推荐项目失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '获取推荐项目失败'
+        };
+    }
+}
+
 // 导出接口
 export default {
     'POST /api/interaction/like': likeItem,
     'POST /api/interaction/recommend': recommendItem,
-    'GET /api/interaction/:type/:itemId/:clientId?': getInteraction
+    'GET /api/interaction/:type/:itemId/:clientId?': getInteraction,
+    'GET /api/recommended-items': getRecommendedItems
 }; 
