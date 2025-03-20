@@ -333,7 +333,7 @@ export const Control = sequelize.define('Control', {
         allowNull: false
     },
     value: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: false
     },
     isDeleted: {

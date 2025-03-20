@@ -28,7 +28,59 @@ async function setConfig(ctx, next) {
     };
 }
 
+// 获取关于页面内容
+async function getAbout(ctx, next) {
+    try {
+        const aboutContent = await ConfigSetting.getConfig('about');
+        ctx.body = {
+            success: true,
+            data: {
+                content: aboutContent || '' // 如果没有内容则返回空字符串
+            }
+        };
+    } catch (error) {
+        console.error('获取关于页面内容失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '获取关于页面内容失败'
+        };
+    }
+}
+
+// 设置关于页面内容
+async function setAbout(ctx, next) {
+    try {
+        const { content } = ctx.request.body;
+        
+        if (typeof content !== 'string') {
+            ctx.status = 400;
+            ctx.body = {
+                success: false,
+                message: '内容必须为字符串'
+            };
+            return;
+        }
+        
+        await ConfigSetting.setConfig('about', content);
+        
+        ctx.body = {
+            success: true,
+            message: '关于页面内容更新成功'
+        };
+    } catch (error) {
+        console.error('设置关于页面内容失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '设置关于页面内容失败'
+        };
+    }
+}
+
 export default {
     'GET /api/config/load': getConfig,
     'POST /api/config/set': setConfig,
+    'GET /api/about': getAbout,
+    'POST /api/admin/about': setAbout
 }

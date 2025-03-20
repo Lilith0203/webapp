@@ -156,7 +156,7 @@ async function startServer() {
           // 创建 HTTP 服务器并重定向到 HTTPS（80端口）
           http.createServer((req, res) => {
               res.writeHead(301, {
-                  'Location': 'https://' + req.headers.host.split(':')[0] + ':443' + req.url
+                  'Location': 'https://' + (req.headers.host ? req.headers.host.split(':')[0] : 'your-default-domain.com') + ':443' + req.url
               });
               res.end();
           }).listen(80, () => {
