@@ -107,9 +107,19 @@ app.use(jwt({
         '/api/grid/save',
         '/api/grid/delete',
         '/api/upload',
+        '/api/comment',
+        '/api/comment_delete',
         '/api/works/edit',
         '/api/works/add',
-        '/api/works/delete'
+        '/api/works/delete',
+        '/api/config/set',
+        '/api/admin/about',
+        '/api/color/delete',
+        '/api/color/add',
+        '/api/color/edit',
+        '/api/color/update-set',
+        '/api/color/delete-set',
+        '/api/interaction/recommend'
     ];
     
     // 检查当前路径是否需要保护

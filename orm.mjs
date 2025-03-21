@@ -379,3 +379,117 @@ export const Color = sequelize.define('Color', {
     //指定表名
     tableName: 'color'
 });
+
+export const StorySet = sequelize.define('StorySet', {
+    //每一列的定义
+    id: {
+        primaryKey: true,
+        autoIncrement: true,
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    description: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    cover: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    sort: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
+    onlineAt: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    level: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 1
+    },
+    parentId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
+    isDeleted: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    }
+}, {
+    //指定表名
+    tableName: 'story_set'
+});
+
+export const Story = sequelize.define('Story', {
+    //每一列的定义
+    id: {
+        primaryKey: true,
+        autoIncrement: true,
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    title: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    content: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    pictures: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    onlineAt: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    isDeleted: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    }
+}, {
+    //指定表名
+    tableName: 'story'
+});
+
+export const StorySetRel = sequelize.define('StorySetRel', {
+    //每一列的定义
+    id: {
+        primaryKey: true,
+        autoIncrement: true,
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    storyId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    setId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    sort: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 999
+    },
+    isDeleted: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    }
+}, {
+    //指定表名
+    tableName: 'story_set_rel'
+});
