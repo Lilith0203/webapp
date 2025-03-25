@@ -449,6 +449,10 @@ export const Story = sequelize.define('Story', {
         type: DataTypes.STRING,
         allowNull: true
     },
+    link: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
     onlineAt: {
         type: DataTypes.DATE,
         allowNull: true
