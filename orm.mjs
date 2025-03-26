@@ -486,7 +486,7 @@ export const StorySetRel = sequelize.define('StorySetRel', {
     sort: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        defaultValue: 999
+        defaultValue: 1
     },
     isDeleted: {
         type: DataTypes.INTEGER,

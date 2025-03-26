@@ -77,6 +77,8 @@ async function getStorySetDetail(ctx, next) {
     let size = parseInt(ctx.query.size) || 10;
     // 添加排序方向参数
     let sortDirection = ctx.query.sortDirection || 'ASC';
+    // 添加搜索关键词参数
+    let keyword = ctx.query.keyword || '';
     
     try {
         const storySet = await StorySet.findOne({
@@ -128,13 +130,23 @@ async function getStorySetDetail(ctx, next) {
         // 获取所有剧情
         let allStories = [];
         if (storyIds.length > 0) {
+            // 添加标题搜索条件
+            const whereCondition = {
+                id: {
+                    [Op.in]: storyIds
+                },
+                isDeleted: 0
+            };
+            
+            // 如果有关键词，添加标题搜索条件
+            if (keyword) {
+                whereCondition.title = {
+                    [Op.like]: `%${keyword}%`
+                };
+            }
+            
             allStories = await Story.findAll({
-                where: {
-                    id: {
-                        [Op.in]: storyIds
-                    },
-                    isDeleted: 0
-                }
+                where: whereCondition
             });
             
             // 处理剧情数据
@@ -449,24 +461,11 @@ async function createStory(ctx, next) {
             }
             
             // 为每个合集创建关联
-            for (const setId of setIds) {
-                // 获取当前合集中最大的排序值
-                const maxSortRel = await StorySetRel.findOne({
-                    where: {
-                        setId,
-                        isDeleted: 0
-                    },
-                    order: [['sort', 'DESC']],
-                    transaction: t
-                });
-                
-                const maxSort = maxSortRel ? maxSortRel.sort : 0;
-                
+            for (const setId of setIds) {  
                 // 创建关联
                 await StorySetRel.create({
                     storyId: newStory.id,
                     setId,
-                    sort: maxSort + 1,
                     isDeleted: 0
                 }, { transaction: t });
             }
