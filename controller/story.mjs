@@ -172,21 +172,20 @@ async function getStorySetDetail(ctx, next) {
                 return storyData;
             });
             
-            // 按照关联表中的排序顺序排序
+            // 按照onlineAt排序
             allStories.sort((a, b) => {
-                // 首先按sort排序
-                if (a.sort !== b.sort) {
-                    return sortDirection === 'ASC' ? a.sort - b.sort : b.sort - a.sort;
-                }
-                
-                // 如果sort相同，则按onlineAt排序
+                // 处理null或undefined的情况
                 if (!a.onlineAt && !b.onlineAt) return 0;
                 if (!a.onlineAt) return sortDirection === 'ASC' ? 1 : -1;
                 if (!b.onlineAt) return sortDirection === 'ASC' ? -1 : 1;
                 
+                // 将字符串日期转换为Date对象进行比较
+                const dateA = new Date(a.onlineAt);
+                const dateB = new Date(b.onlineAt);
+                
                 return sortDirection === 'ASC' 
-                    ? a.onlineAt.localeCompare(b.onlineAt) 
-                    : b.onlineAt.localeCompare(a.onlineAt);
+                    ? dateA - dateB 
+                    : dateB - dateA;
             });
         }
         
