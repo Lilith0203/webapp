@@ -130,7 +130,7 @@ async function getStorySetDetail(ctx, next) {
         // 获取所有剧情
         let allStories = [];
         if (storyIds.length > 0) {
-            // 添加标题搜索条件
+            // 添加标题和内容搜索条件
             const whereCondition = {
                 id: {
                     [Op.in]: storyIds
@@ -138,11 +138,20 @@ async function getStorySetDetail(ctx, next) {
                 isDeleted: 0
             };
             
-            // 如果有关键词，添加标题搜索条件
+            // 如果有关键词，添加标题和内容搜索条件
             if (keyword) {
-                whereCondition.title = {
-                    [Op.like]: `%${keyword}%`
-                };
+                whereCondition[Op.or] = [
+                    {
+                        title: {
+                            [Op.like]: `%${keyword}%`
+                        }
+                    },
+                    {
+                        content: {
+                            [Op.like]: `%${keyword}%`
+                        }
+                    }
+                ];
             }
             
             allStories = await Story.findAll({
@@ -172,20 +181,16 @@ async function getStorySetDetail(ctx, next) {
                 return storyData;
             });
             
-            // 按照onlineAt排序
+            // 按照关联表中的排序顺序排序
             allStories.sort((a, b) => {
                 // 处理null或undefined的情况
                 if (!a.onlineAt && !b.onlineAt) return 0;
                 if (!a.onlineAt) return sortDirection === 'ASC' ? 1 : -1;
                 if (!b.onlineAt) return sortDirection === 'ASC' ? -1 : 1;
                 
-                // 将字符串日期转换为Date对象进行比较
-                const dateA = new Date(a.onlineAt);
-                const dateB = new Date(b.onlineAt);
-                
                 return sortDirection === 'ASC' 
-                    ? dateA - dateB 
-                    : dateB - dateA;
+                    ? a.onlineAt.localeCompare(b.onlineAt) 
+                    : b.onlineAt.localeCompare(a.onlineAt);
             });
         }
         
@@ -334,9 +339,9 @@ async function updateStorySet(ctx, next) {
     }
 }
 
-// 删除剧情合集
+// 添加一个使用POST方法的删除合集函数
 async function deleteStorySet(ctx, next) {
-    const { id } = ctx.params;
+    const { id } = ctx.request.body;
     
     try {
         // 检查合集是否存在
@@ -615,23 +620,11 @@ async function updateStory(ctx, next) {
             
             // 添加新的关联
             for (const setId of toAdd) {
-                // 获取当前合集中最大的排序值
-                const maxSortRel = await StorySetRel.findOne({
-                    where: {
-                        setId,
-                        isDeleted: 0
-                    },
-                    order: [['sort', 'DESC']],
-                    transaction: t
-                });
-                
-                const maxSort = maxSortRel ? maxSortRel.sort : 0;
-                
                 // 创建关联
                 await StorySetRel.create({
                     storyId: id,
                     setId,
-                    sort: maxSort + 1,
+                    sort: 1,
                     isDeleted: 0
                 }, { transaction: t });
             }
@@ -654,9 +647,9 @@ async function updateStory(ctx, next) {
     }
 }
 
-// 删除剧情
+// 添加一个使用POST方法的删除函数
 async function deleteStory(ctx, next) {
-    const { id } = ctx.params;
+    const { id } = ctx.request.body; // 从请求体获取ID
     
     try {
         // 检查剧情是否存在
@@ -668,6 +661,7 @@ async function deleteStory(ctx, next) {
         });
         
         if (!story) {
+            console.log('剧情不存在，ID:', id);
             ctx.status = 404;
             ctx.body = {
                 success: false,
@@ -675,6 +669,8 @@ async function deleteStory(ctx, next) {
             };
             return;
         }
+        
+        console.log('开始删除剧情，ID:', id);
         
         // 软删除剧情
         await Story.update({
@@ -696,6 +692,8 @@ async function deleteStory(ctx, next) {
                 isDeleted: 0
             }
         });
+        
+        console.log('剧情删除成功，ID:', id);
         
         ctx.body = {
             success: true,
@@ -782,15 +780,7 @@ async function addStoryToSet(ctx, next) {
         // 获取当前合集中最大的排序值
         let sortValue = sort;
         if (sortValue === undefined) {
-            const maxSortRel = await StorySetRel.findOne({
-                where: {
-                    setId,
-                    isDeleted: 0
-                },
-                order: [['sort', 'DESC']]
-            });
-            
-            sortValue = maxSortRel ? maxSortRel.sort + 1 : 1;
+            sortValue = 1;
         }
         
         // 创建关联
@@ -1005,12 +995,12 @@ export default {
     'GET /api/story-sets/:id': getStorySetDetail,
     'POST /api/story-sets': createStorySet,
     'PUT /api/story-sets/:id': updateStorySet,
-    'DELETE /api/story-sets/:id': deleteStorySet,
+    'POST /api/story-sets/delete': deleteStorySet,
     
     // 剧情接口
     'POST /api/stories': createStory,
     'PUT /api/stories/:id': updateStory,
-    'DELETE /api/stories/:id': deleteStory,
+    'POST /api/stories/delete': deleteStory,
     
     // 关联接口
     'POST /api/story-set-rel/add': addStoryToSet,
