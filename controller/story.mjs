@@ -169,6 +169,18 @@ async function getStorySetDetail(ctx, next) {
                     storyData.onlineAt = utils.YYYYMMDDHHmmss(storyData.onlineAt);
                 }
                 
+                // 处理pictures字段，确保它是数组
+                if (storyData.pictures) {
+                    try {
+                        storyData.pictures = JSON.parse(storyData.pictures);
+                    } catch (e) {
+                        // 如果解析失败，假设它是单个URL
+                        storyData.pictures = [storyData.pictures];
+                    }
+                } else {
+                    storyData.pictures = [];
+                }
+                
                 // 添加排序信息（使用当前合集中的排序，如果存在）
                 const currentSetRelation = relations.find(rel => rel.storyId === storyData.id && rel.setId === parseInt(id));
                 storyData.sort = currentSetRelation ? currentSetRelation.sort : 0;
@@ -435,14 +447,33 @@ async function createStory(ctx, next) {
     const t = await Story.sequelize.transaction();
     
     try {
+        // 处理pictures字段，确保它是JSON字符串
+        let processedPictures = pictures;
+        if (pictures) {
+            if (Array.isArray(pictures)) {
+                processedPictures = JSON.stringify(pictures);
+            } else if (typeof pictures === 'string') {
+                try {
+                    // 尝试解析为JSON，如果成功则是有效的JSON字符串
+                    JSON.parse(pictures);
+                    processedPictures = pictures;
+                } catch (e) {
+                    // 如果解析失败，假设它是单个URL
+                    processedPictures = JSON.stringify([pictures]);
+                }
+            }
+        } else {
+            processedPictures = '[]';
+        }
+        
         // 创建新剧情
         const newStory = await Story.create({
             title,
             content: content || '',
-            pictures: pictures || '',
+            pictures: processedPictures,
             link: link || '',
             onlineAt: onlineAt || null,
-            isRecommended: isRecommended === '1' ? 1 : 0, // 处理推荐字段
+            isRecommended: isRecommended === 1 ? 1 : 0,
             isDeleted: 0
         }, { transaction: t });
         
@@ -545,6 +576,25 @@ async function updateStory(ctx, next) {
             return;
         }
         
+        // 处理pictures字段，确保它是JSON字符串
+        let processedPictures = pictures;
+        if (pictures !== undefined) {
+            if (Array.isArray(pictures)) {
+                processedPictures = JSON.stringify(pictures);
+            } else if (typeof pictures === 'string') {
+                try {
+                    // 尝试解析为JSON，如果成功则是有效的JSON字符串
+                    JSON.parse(pictures);
+                    processedPictures = pictures;
+                } catch (e) {
+                    // 如果解析失败，假设它是单个URL
+                    processedPictures = JSON.stringify([pictures]);
+                }
+            }
+        } else {
+            processedPictures = story.pictures;
+        }
+        
         // 处理onlineAt字段，确保它是有效的日期或null
         let processedOnlineAt = onlineAt;
         if (onlineAt === '' || onlineAt === 'Invalid date' || !onlineAt) {
@@ -555,7 +605,7 @@ async function updateStory(ctx, next) {
         await Story.update({
             title,
             content: content !== undefined ? content : story.content,
-            pictures: pictures !== undefined ? pictures : story.pictures,
+            pictures: processedPictures,
             link: link !== undefined ? link : story.link,
             onlineAt: processedOnlineAt,
             isRecommended: isRecommended === 1 ? 1 : 0, // 处理推荐字段
@@ -974,6 +1024,18 @@ async function getStoryDetail(ctx, next) {
         storyData.updatedAt = utils.YYYYMMDDHHmmss(storyData.updatedAt);
         if (storyData.onlineAt) {
             storyData.onlineAt = utils.YYYYMMDDHHmmss(storyData.onlineAt);
+        }
+        
+        // 处理pictures字段，确保它是数组
+        if (storyData.pictures) {
+            try {
+                storyData.pictures = JSON.parse(storyData.pictures);
+            } catch (e) {
+                // 如果解析失败，假设它是单个URL
+                storyData.pictures = [storyData.pictures];
+            }
+        } else {
+            storyData.pictures = [];
         }
         
         // 添加合集ID信息
