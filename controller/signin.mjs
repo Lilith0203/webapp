@@ -36,7 +36,7 @@ async function login(ctx, next) {
                 name: user.name,
                 },
                 JWT_SECRET,
-                {expiresIn: '24h'}
+                {expiresIn: '7d'}
             );
             //ctx.session.logged = true;
             ctx.body = {

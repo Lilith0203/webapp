@@ -88,42 +88,51 @@ app.use(async (ctx, next) => {
   });
 });
 
-// 添加 JWT 中间件，排除不需要验证的路径
+// 添加 JWT 中间件，排除不需要验证的路径和方法
 app.use(jwt({ 
   secret: JWT_SECRET 
 }).unless({ 
   custom: (ctx) => {
-    // 需要JWT验证的路径
-    const protectedPaths = [
-        '/api/articleAdd',
-        '/api/article/edit',
-        '/api/article/delete',
-        '/api/updateMaterialType', 
-        '/api/addMaterialType', 
-        '/api/deleteMaterialType',
-        '/api/updateMaterial',
-        '/api/addMaterial',
-        '/api/deleteMaterial',
-        '/api/grid/save',
-        '/api/grid/delete',
-        '/api/upload',
-        '/api/comment',
-        '/api/comment_delete',
-        '/api/works/edit',
-        '/api/works/add',
-        '/api/works/delete',
-        '/api/config/set',
-        '/api/admin/about',
-        '/api/color/delete',
-        '/api/color/add',
-        '/api/color/edit',
-        '/api/color/update-set',
-        '/api/color/delete-set',
-        '/api/interaction/recommend'
+    // 需要JWT验证的路径和方法组合
+    const protectedRoutes = [
+        { path: '/api/config/set', methods: ['POST'] },
+        { path: '/api/admin/about', methods: ['POST'] },
+        { path: '/api/articleAdd', methods: ['POST'] },
+        { path: '/api/article/edit', methods: ['POST'] },
+        { path: '/api/article/delete', methods: ['POST'] },
+        { path: '/api/color/delete', methods: ['POST'] },
+        { path: '/api/color/add', methods: ['POST'] },
+        { path: '/api/color/edit', methods: ['POST'] },
+        { path: '/api/color/update-set', methods: ['POST'] },
+        { path: '/api/color/delete-set', methods: ['POST'] },
+        { path: '/api/grid/save', methods: ['POST'] },
+        { path: '/api/grid/delete', methods: ['POST'] },
+        { path: '/api/interaction/recommend', methods: ['POST'] },
+        { path: '/api/updateMaterialType', methods: ['POST'] },
+        { path: '/api/addMaterialType', methods: ['POST'] },
+        { path: '/api/deleteMaterialType', methods: ['POST'] },
+        { path: '/api/updateMaterial', methods: ['POST'] },
+        { path: '/api/addMaterial', methods: ['POST'] },
+        { path: '/api/deleteMaterial', methods: ['POST'] },
+        { path: '/api/story-sets', methods: ['POST', 'PUT'] },
+        { path: '/api/story-sets/delete', methods: ['POST'] },
+        { path: '/api/stories', methods: ['POST', 'PUT'] }, 
+        { path: '/api/stories/delete', methods: ['POST'] },
+        { path: '/api/upload', methods: ['POST'] },
+        { path: '/api/comment_delete', methods: ['POST'] },
+        { path: '/api/works/edit', methods: ['POST'] },
+        { path: '/api/works/add', methods: ['POST'] },
+        { path: '/api/works/delete', methods: ['POST'] },
     ];
     
-    // 检查当前路径是否需要保护
-    return !protectedPaths.some(path => ctx.path.startsWith(path));
+    // 检查当前请求的路径和方法是否需要保护
+    for (const route of protectedRoutes) {
+        if (ctx.path.startsWith(route.path) && route.methods.includes(ctx.method)) {
+            return false; // 需要验证
+        }
+    }
+    
+    return true; // 不需要验证
   }
 }));
 
