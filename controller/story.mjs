@@ -178,6 +178,9 @@ async function getStorySetDetail(ctx, next) {
                     .filter(rel => rel.storyId === storyData.id)
                     .map(rel => rel.setId);
                 
+                // 确保isRecommended字段存在
+                storyData.isRecommended = !!storyData.isRecommended;
+                
                 return storyData;
             });
             
@@ -417,7 +420,7 @@ async function deleteStorySet(ctx, next) {
 
 // 创建剧情
 async function createStory(ctx, next) {
-    const { title, content, pictures, link, onlineAt, setIds } = ctx.request.body;
+    const { title, content, pictures, link, onlineAt, setIds, isRecommended } = ctx.request.body;
     
     if (!title) {
         ctx.status = 400;
@@ -439,6 +442,7 @@ async function createStory(ctx, next) {
             pictures: pictures || '',
             link: link || '',
             onlineAt: onlineAt || null,
+            isRecommended: isRecommended === '1' ? 1 : 0, // 处理推荐字段
             isDeleted: 0
         }, { transaction: t });
         
@@ -508,7 +512,7 @@ async function createStory(ctx, next) {
 // 更新剧情
 async function updateStory(ctx, next) {
     const { id } = ctx.params;
-    const { title, content, pictures, link, onlineAt, setIds } = ctx.request.body;
+    const { title, content, pictures, link, onlineAt, setIds, isRecommended } = ctx.request.body;
     
     if (!title) {
         ctx.status = 400;
@@ -554,6 +558,7 @@ async function updateStory(ctx, next) {
             pictures: pictures !== undefined ? pictures : story.pictures,
             link: link !== undefined ? link : story.link,
             onlineAt: processedOnlineAt,
+            isRecommended: isRecommended === 1 ? 1 : 0, // 处理推荐字段
             updatedAt: new Date()
         }, {
             where: { id },

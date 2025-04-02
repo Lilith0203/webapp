@@ -453,6 +453,10 @@ export const Story = sequelize.define('Story', {
         type: DataTypes.TEXT,
         allowNull: true
     },
+    isRecommended: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+    },
     onlineAt: {
         type: DataTypes.DATE,
         allowNull: true
