@@ -138,7 +138,7 @@ async function getStorySetDetail(ctx, next) {
                 isDeleted: 0
             };
             
-            // 如果有关键词，添加标题和内容搜索条件
+            // 如果有关键词，添加标题、内容和合集名称搜索条件
             if (keyword) {
                 whereCondition[Op.or] = [
                     {
@@ -152,6 +152,38 @@ async function getStorySetDetail(ctx, next) {
                         }
                     }
                 ];
+
+                // 获取包含关键词的合集ID
+                const matchingSets = await StorySet.findAll({
+                    where: {
+                        name: {
+                            [Op.like]: `%${keyword}%`
+                        },
+                        isDeleted: 0
+                    }
+                });
+                
+                // 如果找到匹配的合集，将其ID加入到搜索条件中
+                if (matchingSets.length > 0) {
+                    const matchingSetIds = matchingSets.map(set => set.id);
+                    const matchingRelations = await StorySetRel.findAll({
+                        where: {
+                            setId: {
+                                [Op.in]: matchingSetIds
+                            },
+                            isDeleted: 0
+                        }
+                    });
+                    
+                    if (matchingRelations.length > 0) {
+                        const matchingStoryIds = matchingRelations.map(rel => rel.storyId);
+                        whereCondition[Op.or].push({
+                            id: {
+                                [Op.in]: matchingStoryIds
+                            }
+                        });
+                    }
+                }
             }
             
             allStories = await Story.findAll({
