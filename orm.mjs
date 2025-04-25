@@ -501,3 +501,50 @@ export const StorySetRel = sequelize.define('StorySetRel', {
     //指定表名
     tableName: 'story_set_rel'
 });
+
+export const Plan = sequelize.define('Plan', {
+    // 列定义
+    id: {
+        primaryKey: true,
+        autoIncrement: true,
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    title: {
+        type: DataTypes.STRING,  // 标题
+        allowNull: false
+    },
+    description: {
+        type: DataTypes.TEXT,    // 描述
+        allowNull: true
+    },
+    status: {
+        type: DataTypes.STRING, // e.g., 'Planned', 'In Progress', 'Completed', 'On Hold'
+        allowNull: true
+    },
+    startDate: {
+        type: DataTypes.DATEONLY, // 开始日期
+        allowNull: true
+    },
+    endDate: {
+        type: DataTypes.DATEONLY, // 结束日期
+        allowNull: true
+    },
+    link: { // <--- 新增：链接字段
+        type: DataTypes.TEXT,     // 使用 TEXT 类型以容纳较长的 URL
+        allowNull: true           // 允许为空
+    },
+    sort: {
+        type: DataTypes.INTEGER, // 排序字段
+        allowNull: false,
+        defaultValue: 0
+    },
+    isDeleted: {
+        type: DataTypes.INTEGER, // 软删除标记
+        allowNull: false,
+        defaultValue: 0
+    }
+}, {
+    // Table options
+    tableName: 'plan'
+});
