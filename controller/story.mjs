@@ -1,4 +1,4 @@
-import { Story, StorySet, StorySetRel } from '../orm.mjs';
+import { Story, StorySet, StorySetRel, StoryRelation } from '../orm.mjs';
 import { Op, Sequelize } from 'sequelize';
 import * as utils from 'utility';
 
@@ -575,7 +575,7 @@ async function createStory(ctx, next) {
 // 更新剧情
 async function updateStory(ctx, next) {
     const { id } = ctx.params;
-    const { title, content, pictures, link, onlineAt, setIds, isRecommended } = ctx.request.body;
+    const { title, content, pictures, link, onlineAt, setIds, isRecommended, detail } = ctx.request.body;
     
     if (!title) {
         ctx.status = 400;
@@ -640,7 +640,8 @@ async function updateStory(ctx, next) {
             pictures: processedPictures,
             link: link !== undefined ? link : story.link,
             onlineAt: processedOnlineAt,
-            isRecommended: isRecommended === 1 ? 1 : 0, // 处理推荐字段
+            isRecommended: isRecommended === 1 ? 1 : 0,
+            detail: detail !== undefined ? detail : story.detail,
             updatedAt: new Date()
         }, {
             where: { id },
@@ -948,77 +949,9 @@ async function removeStoryFromSet(ctx, next) {
     }
 }
 
-// 更新合集中剧情的排序
-async function updateStoryOrder(ctx, next) {
-    const { setId, storyOrders } = ctx.request.body;
-    
-    if (!setId || !storyOrders || !Array.isArray(storyOrders)) {
-        ctx.status = 400;
-        ctx.body = {
-            success: false,
-            message: '合集ID和剧情排序数组不能为空'
-        };
-        return;
-    }
-    
-    const transaction = await Sequelize.transaction();
-    
-    try {
-        // 检查合集是否存在
-        const storySet = await StorySet.findOne({
-            where: {
-                id: setId,
-                isDeleted: 0
-            }
-        });
-        
-        if (!storySet) {
-            ctx.status = 404;
-            ctx.body = {
-                success: false,
-                message: '合集不存在'
-            };
-            return;
-        }
-        
-        // 更新每个剧情的排序
-        for (const order of storyOrders) {
-            if (!order.storyId || order.sort === undefined) continue;
-            
-            await StorySetRel.update({
-                sort: order.sort,
-                updatedAt: new Date()
-            }, {
-                where: {
-                    setId,
-                    storyId: order.storyId,
-                    isDeleted: 0
-                },
-                transaction
-            });
-        }
-        
-        await transaction.commit();
-        
-        ctx.body = {
-            success: true,
-            message: '剧情排序更新成功'
-        };
-    } catch (error) {
-        await transaction.rollback();
-        console.error('更新剧情排序失败:', error);
-        ctx.status = 500;
-        ctx.body = {
-            success: false,
-            message: '更新剧情排序失败'
-        };
-    }
-}
-
 // 获取剧情详情
 async function getStoryDetail(ctx, next) {
     const { id } = ctx.params;
-    
     try {
         // 查询剧情
         const story = await Story.findOne({
@@ -1027,7 +960,6 @@ async function getStoryDetail(ctx, next) {
                 isDeleted: 0
             }
         });
-        
         if (!story) {
             ctx.status = 404;
             ctx.body = {
@@ -1036,7 +968,6 @@ async function getStoryDetail(ctx, next) {
             };
             return;
         }
-        
         // 获取剧情所属的所有合集关联
         const relations = await StorySetRel.findAll({
             where: {
@@ -1044,35 +975,29 @@ async function getStoryDetail(ctx, next) {
                 isDeleted: 0
             }
         });
-        
         // 获取剧情所属的所有合集ID
         const setIds = relations.map(rel => rel.setId);
-        
         // 处理剧情数据
         const storyData = story.get({ plain: true });
-        
         // 格式化日期
         storyData.createdAt = utils.YYYYMMDDHHmmss(storyData.createdAt);
         storyData.updatedAt = utils.YYYYMMDDHHmmss(storyData.updatedAt);
         if (storyData.onlineAt) {
             storyData.onlineAt = utils.YYYYMMDDHHmmss(storyData.onlineAt);
         }
-        
         // 处理pictures字段，确保它是数组
         if (storyData.pictures) {
             try {
                 storyData.pictures = JSON.parse(storyData.pictures);
             } catch (e) {
-                // 如果解析失败，假设它是单个URL
                 storyData.pictures = [storyData.pictures];
             }
         } else {
             storyData.pictures = [];
         }
-        
         // 添加合集ID信息
         storyData.setIds = setIds;
-        
+        // 返回 detail 字段（无需特殊处理，已在 plain 对象中）
         ctx.body = {
             success: true,
             data: storyData
@@ -1084,6 +1009,213 @@ async function getStoryDetail(ctx, next) {
             success: false,
             message: '获取剧情详情失败'
         };
+    }
+}
+
+// 添加剧情关联
+// POST /api/story-relation/add
+async function addStoryRelation(ctx, next) {
+    const { storyId, relatedId, relationType, note } = ctx.request.body;
+
+    if (!storyId || !relatedId || !relationType) {
+        ctx.status = 400;
+        ctx.body = {
+            success: false,
+            message: 'storyId、relatedId、relationType 不能为空'
+        };
+        return;
+    }
+    if (storyId === relatedId) {
+        ctx.status = 400;
+        ctx.body = {
+            success: false,
+            message: '不能关联自身'
+        };
+        return;
+    }
+
+    try {
+        // 检查剧情是否存在
+        const story = await Story.findOne({ where: { id: storyId, isDeleted: 0 } });
+        const related = await Story.findOne({ where: { id: relatedId, isDeleted: 0 } });
+        if (!story || !related) {
+            ctx.status = 404;
+            ctx.body = {
+                success: false,
+                message: '剧情不存在'
+            };
+            return;
+        }
+
+        // 检查是否已存在
+        const exist = await StoryRelation.findOne({
+            where: { storyId, relatedId, relationType, isDeleted: 0 }
+        });
+        if (exist) {
+            ctx.status = 400;
+            ctx.body = {
+                success: false,
+                message: '该关联已存在'
+            };
+            return;
+        }
+
+        await StoryRelation.create({
+            storyId,
+            relatedId,
+            relationType,
+            note: note || '',
+            isDeleted: 0
+        });
+
+        ctx.body = {
+            success: true,
+            message: '添加剧情关联成功'
+        };
+    } catch (error) {
+        console.error('添加剧情关联失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '添加剧情关联失败'
+        };
+    }
+}
+
+// 查询剧情的所有关联
+// GET /api/story-relation/:storyId
+async function getStoryRelations(ctx, next) {
+    const { storyId } = ctx.params;
+    try {
+        // 查询所有未删除的关联
+        const relations = await StoryRelation.findAll({
+            where: {
+                storyId,
+                isDeleted: 0
+            }
+        });
+
+        // 查询被关联剧情的详细信息
+        const relatedIds = relations.map(rel => rel.relatedId);
+        let relatedStories = [];
+        if (relatedIds.length > 0) {
+            relatedStories = await Story.findAll({
+                where: {
+                    id: relatedIds,
+                    isDeleted: 0
+                }
+            });
+        }
+        // 组装返回
+        const relatedMap = {};
+        relatedStories.forEach(story => {
+            relatedMap[story.id] = story.get({ plain: true });
+        });
+
+        const result = relations.map(rel => ({
+            id: rel.id,
+            storyId: rel.storyId,
+            relatedId: rel.relatedId,
+            relationType: rel.relationType,
+            note: rel.note,
+            relatedStory: relatedMap[rel.relatedId] || null
+        }));
+
+        ctx.body = {
+            success: true,
+            data: result
+        };
+    } catch (error) {
+        console.error('查询剧情关联失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '查询剧情关联失败'
+        };
+    }
+}
+
+// 删除剧情关联
+// POST /api/story-relation/delete
+async function deleteStoryRelation(ctx, next) {
+    const { id } = ctx.request.body;
+    if (!id) {
+        ctx.status = 400;
+        ctx.body = { success: false, message: '关联ID不能为空' };
+        return;
+    }
+    try {
+        const rel = await StoryRelation.findOne({ where: { id, isDeleted: 0 } });
+        if (!rel) {
+            ctx.status = 404;
+            ctx.body = { success: false, message: '关联不存在' };
+            return;
+        }
+        await StoryRelation.update(
+            { isDeleted: 1 },
+            { where: { id } }
+        );
+        ctx.body = { success: true, message: '删除关联成功' };
+    } catch (error) {
+        console.error('删除剧情关联失败:', error);
+        ctx.status = 500;
+        ctx.body = { success: false, message: '删除剧情关联失败' };
+    }
+}
+
+// GET /api/stories
+// 支持 ?search=xxx&size=10&setIds=1,2,3
+async function searchStories(ctx, next) {
+    const search = ctx.query.search ? ctx.query.search.trim() : ''
+    const size = parseInt(ctx.query.size) || 10
+    let setIds = ctx.query.setIds
+    if (typeof setIds === 'string' && setIds.length > 0) {
+        setIds = setIds.split(',').map(id => parseInt(id)).filter(Boolean)
+    } else {
+        setIds = undefined
+    }
+
+    let where = { isDeleted: 0 }
+    if (search) {
+        where.title = { [Op.like]: `%${search}%` }
+    }
+
+    try {
+        let storyIds = null
+        if (setIds && setIds.length > 0) {
+            // 查找属于这些合集的剧情ID
+            const rels = await StorySetRel.findAll({
+                where: {
+                    setId: { [Op.in]: setIds },
+                    isDeleted: 0
+                },
+                attributes: ['storyId']
+            })
+            storyIds = rels.map(r => r.storyId)
+            if (storyIds.length === 0) {
+                ctx.body = { success: true, items: [] }
+                return
+            }
+            where.id = { [Op.in]: storyIds }
+        }
+
+        const stories = await Story.findAll({
+            where,
+            attributes: ['id', 'title'],
+            limit: size,
+            order: [['updatedAt', 'DESC']]
+        })
+        ctx.body = {
+            success: true,
+            items: stories.map(s => s.get({ plain: true }))
+        }
+    } catch (error) {
+        console.error('剧情搜索失败:', error)
+        ctx.status = 500
+        ctx.body = {
+            success: false,
+            message: '剧情搜索失败'
+        }
     }
 }
 
@@ -1104,6 +1236,10 @@ export default {
     // 关联接口
     'POST /api/story-set-rel/add': addStoryToSet,
     'POST /api/story-set-rel/remove': removeStoryFromSet,
-    'POST /api/story-set-rel/order': updateStoryOrder,
-    'GET /api/stories/:id': getStoryDetail
+    'GET /api/stories/:id': getStoryDetail,
+    'POST /api/story-relation/add': addStoryRelation,
+    'GET /api/story-relation/:storyId': getStoryRelations,
+    'POST /api/story-relation/delete': deleteStoryRelation,
+    'GET /api/stories': searchStories
 };
+

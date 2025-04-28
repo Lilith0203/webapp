@@ -445,6 +445,10 @@ export const Story = sequelize.define('Story', {
         type: DataTypes.TEXT,
         allowNull: true
     },
+    detail: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
     pictures: {
         type: DataTypes.STRING,
         allowNull: true
@@ -469,6 +473,41 @@ export const Story = sequelize.define('Story', {
 }, {
     //指定表名
     tableName: 'story'
+});
+
+export const StoryRelation = sequelize.define('StoryRelation', {
+    //每一列的定义
+    id: {
+        primaryKey: true,
+        autoIncrement: true,
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    storyId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    relatedId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    relationType: { // 关联类型
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'related' // 可选: prequel, sequel, parallel, reference, etc.
+    },
+    note: { // 备注
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    isDeleted: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    }
+}, {
+    //指定表名
+    tableName: 'story_relation'
 });
 
 export const StorySetRel = sequelize.define('StorySetRel', {
