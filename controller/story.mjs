@@ -968,6 +968,7 @@ async function getStoryDetail(ctx, next) {
             };
             return;
         }
+
         // 获取剧情所属的所有合集关联
         const relations = await StorySetRel.findAll({
             where: {
@@ -975,17 +976,32 @@ async function getStoryDetail(ctx, next) {
                 isDeleted: 0
             }
         });
+
         // 获取剧情所属的所有合集ID
         const setIds = relations.map(rel => rel.setId);
+
+        // 获取合集信息
+        const sets = await StorySet.findAll({
+            where: {
+                id: {
+                    [Op.in]: setIds
+                },
+                isDeleted: 0
+            },
+            attributes: ['id', 'name']
+        });
+
         // 处理剧情数据
         const storyData = story.get({ plain: true });
+        
         // 格式化日期
         storyData.createdAt = utils.YYYYMMDDHHmmss(storyData.createdAt);
         storyData.updatedAt = utils.YYYYMMDDHHmmss(storyData.updatedAt);
         if (storyData.onlineAt) {
             storyData.onlineAt = utils.YYYYMMDDHHmmss(storyData.onlineAt);
         }
-        // 处理pictures字段，确保它是数组
+
+        // 处理pictures字段
         if (storyData.pictures) {
             try {
                 storyData.pictures = JSON.parse(storyData.pictures);
@@ -995,9 +1011,13 @@ async function getStoryDetail(ctx, next) {
         } else {
             storyData.pictures = [];
         }
-        // 添加合集ID信息
-        storyData.setIds = setIds;
-        // 返回 detail 字段（无需特殊处理，已在 plain 对象中）
+
+        // 添加合集信息
+        storyData.sets = sets.map(set => ({
+            id: set.id,
+            name: set.name
+        }));
+
         ctx.body = {
             success: true,
             data: storyData
