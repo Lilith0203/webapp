@@ -30,9 +30,15 @@ async function plan(ctx, next) {
     // 处理每一行的数据
     rows = rows.map(item => {
         const row = item.get({ plain: true });
-        // 格式化日期
-        row.startDate = row.startDate ? utils.YYYYMMDD(row.startDate) : null;
-        row.endDate = row.endDate ? utils.YYYYMMDD(row.endDate) : null;
+        // 确保日期格式正确
+        if (row.startDate) {
+            const date = new Date(row.startDate);
+            row.startDate = date.toISOString().split('T')[0]; // 格式化为 YYYY-MM-DD
+        }
+        if (row.endDate) {
+            const date = new Date(row.endDate);
+            row.endDate = date.toISOString().split('T')[0]; // 格式化为 YYYY-MM-DD
+        }
         row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt);
         row.updatedAt = utils.YYYYMMDDHHmmss(row.updatedAt);
         return row;
