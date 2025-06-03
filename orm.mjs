@@ -273,6 +273,11 @@ export const Comment = sequelize.define('Comment', {
         allowNull: false,
         defaultValue: 0
     },
+    isApproved: {  // 新增审核字段
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0  // 0表示未审核，1表示已审核通过
+    },
     isDeleted: {
         type: DataTypes.INTEGER,
         allowNull: false,

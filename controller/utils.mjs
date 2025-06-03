@@ -117,20 +117,21 @@ async function addComment(ctx, next) {
     const { name, content, type, itemId, reply } = ctx.request.body;
 
     try {
-        // 创建新评论
+        // 创建新评论，默认未审核
         const comment = await Comment.create({
             name,
             content,
             type,
             itemId,
             reply,
+            isApproved: 0, // 确保新评论默认为未审核状态
             createdAt: new Date(),
             updatedAt: new Date()
         });
 
         ctx.body = {
             success: true,
-            message: '评论成功',
+            message: '评论成功，等待审核',
             data: {
                 comment
             }
@@ -149,14 +150,34 @@ async function addComment(ctx, next) {
 async function getComments(ctx, next) {
     const itemId = parseInt(ctx.params.itemId);
     const type = ctx.query.type; // 文章或作品类型
-
+    const approvalStatus = ctx.query.approval; // 新增：审核状态参数
+    
     try {
+        // 构建查询条件
+        const whereCondition = {
+            isDeleted: 0
+        };
+        
+        // 如果提供了 itemId，添加到查询条件
+        if (!isNaN(itemId)) {
+            whereCondition.itemId = itemId;
+        }
+        
+        // 如果提供了 type，添加到查询条件
+        if (type) {
+            whereCondition.type = type;
+        }
+        
+        // 根据审核状态过滤
+        if (approvalStatus === 'approved') {
+            whereCondition.isApproved = 1;
+        } else if (approvalStatus === 'pending') {
+            whereCondition.isApproved = 0;
+        }
+        // 如果 approvalStatus 不是 'approved' 或 'pending'，则不添加过滤条件，返回所有评论
+
         const comments = await Comment.findAll({
-            where: {
-                itemId: itemId,
-                type: type,
-                isDeleted: 0
-            },
+            where: whereCondition,
             order: [['createdAt', 'DESC']]
         });
 
@@ -237,10 +258,48 @@ async function deleteComment(ctx, next) {
     }
 }
 
+// 新增：审核评论的函数
+async function approveComment(ctx, next) {
+    const id = parseInt(ctx.request.body.id);
+    const isApproved = parseInt(ctx.request.body.isApproved) || 1; // 默认为审核通过
+    
+    try {
+        // 查找评论
+        const comment = await Comment.findByPk(id);
+        if (!comment) {
+            ctx.status = 404;
+            ctx.body = {
+                success: false,
+                message: '评论不存在'
+            };
+            return;
+        }
+
+        // 更新评论的审核状态
+        await Comment.update({ isApproved }, {
+            where: { id: id }
+        });
+
+        ctx.body = {
+            success: true,
+            message: isApproved === 1 ? '评论审核通过' : '评论审核拒绝'
+        };
+    } catch (error) {
+        console.error('Approve comment error:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '评论审核操作失败'
+        };
+    }
+}
+
 export default {
     'POST /api/upload': [upload.single('file'), uploadFile],
     'POST /api/oss-refresh': refreshSignedUrl,
     'GET /api/comments/:itemId': getComments,
+    'GET /api/comments': getComments, // 新增：获取所有评论的路由，用于管理界面
     'POST /api/comment': addComment,
-    'POST /api/comment_delete': deleteComment
+    'POST /api/comment_delete': deleteComment,
+    'POST /api/comment_approve': approveComment // 新增：审核评论的路由
 }
