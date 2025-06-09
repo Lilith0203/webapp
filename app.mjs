@@ -96,7 +96,6 @@ app.use(jwt({
     // 需要JWT验证的路径和方法组合
     const protectedRoutes = [
         { path: '/api/config/set', methods: ['POST'] },
-        { path: '/api/admin/about', methods: ['POST'] },
         { path: '/api/articleAdd', methods: ['POST'] },
         { path: '/api/article/edit', methods: ['POST'] },
         { path: '/api/article/delete', methods: ['POST'] },
@@ -118,8 +117,11 @@ app.use(jwt({
         { path: '/api/story-sets/delete', methods: ['POST'] },
         { path: '/api/stories', methods: ['POST', 'PUT'] }, 
         { path: '/api/stories/delete', methods: ['POST'] },
+        { path: '/api/story-relation/add', methods: ['POST'] },
+        { path: '/api/story-relation/delete', methods: ['POST'] },
         { path: '/api/upload', methods: ['POST'] },
         { path: '/api/comment_delete', methods: ['POST'] },
+        { path: '/api/comment_approve', methods: ['POST'] },
         { path: '/api/works/edit', methods: ['POST'] },
         { path: '/api/works/add', methods: ['POST'] },
         { path: '/api/works/delete', methods: ['POST'] },
