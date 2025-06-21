@@ -152,6 +152,10 @@ async function getComments(ctx, next) {
     const type = ctx.query.type; // 文章或作品类型
     const approvalStatus = ctx.query.approval; // 新增：审核状态参数
     
+    // 新增：翻页参数
+    const page = parseInt(ctx.query.page) || 1; // 页码，默认为1
+    const pageSize = parseInt(ctx.query.pageSize) || 10; // 每页数量，默认为10
+    
     try {
         // 构建查询条件
         const whereCondition = {
@@ -176,9 +180,19 @@ async function getComments(ctx, next) {
         }
         // 如果 approvalStatus 不是 'approved' 或 'pending'，则不添加过滤条件，返回所有评论
 
+        // 计算偏移量
+        const offset = (page - 1) * pageSize;
+        
+        // 获取总数
+        const totalCount = await Comment.count({
+            where: whereCondition
+        });
+
         const comments = await Comment.findAll({
             where: whereCondition,
-            order: [['createdAt', 'DESC']]
+            order: [['createdAt', 'DESC']],
+            limit: pageSize,
+            offset: offset
         });
 
         // 处理每一行的数据
@@ -207,9 +221,22 @@ async function getComments(ctx, next) {
         // 只返回顶级评论
         const topLevelComments = Object.values(commentsMap);
 
+        // 计算分页信息
+        const totalPages = Math.ceil(totalCount / pageSize);
+        const hasNextPage = page < totalPages;
+        const hasPrevPage = page > 1;
+
         ctx.body = {
             success: true,
-            comments: topLevelComments
+            comments: topLevelComments,
+            pagination: {
+                page: page,
+                pageSize: pageSize,
+                totalCount: totalCount,
+                totalPages: totalPages,
+                hasNextPage: hasNextPage,
+                hasPrevPage: hasPrevPage
+            }
         };
     } catch (error) {
         console.error('Get comments error:', error);
