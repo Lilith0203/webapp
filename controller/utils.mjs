@@ -218,8 +218,10 @@ async function getComments(ctx, next) {
             }
         });
 
-        // 只返回顶级评论
-        const topLevelComments = Object.values(commentsMap);
+        // 只返回顶级评论，并重新按创建时间倒序排列
+        const topLevelComments = Object.values(commentsMap).sort((a, b) => {
+            return new Date(b.createdAt) - new Date(a.createdAt);
+        });
 
         // 计算分页信息
         const totalPages = Math.ceil(totalCount / pageSize);
