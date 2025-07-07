@@ -592,3 +592,37 @@ export const Plan = sequelize.define('Plan', {
     // Table options
     tableName: 'plan'
 });
+
+export const Guide = sequelize.define('Guide', {
+    // 列定义
+    id: {
+        primaryKey: true,
+        autoIncrement: true,
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    title: {
+        type: DataTypes.STRING,  // 标题
+        allowNull: false
+    },
+    content: {
+        type: DataTypes.TEXT,    // 内容
+        allowNull: true
+    },
+    category: {
+        type: DataTypes.STRING,  // 分类
+        allowNull: false
+    },
+    tags: {
+        type: DataTypes.STRING,  // 标签（可选）
+        allowNull: true
+    },
+    isDeleted: {
+        type: DataTypes.INTEGER, // 软删除标记
+        allowNull: false,
+        defaultValue: 0
+    }
+}, {
+    // Table options
+    tableName: 'guide'
+});
