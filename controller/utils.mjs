@@ -4,6 +4,7 @@ import multer from '@koa/multer';
 import config from 'config'
 import { Comment} from '../orm.mjs';
 import ConfigSetting from '../util/config.mjs';
+import { Op } from 'sequelize';
 
 // 配置文件上传
 const upload = multer();
@@ -180,47 +181,135 @@ async function getComments(ctx, next) {
         }
         // 如果 approvalStatus 不是 'approved' 或 'pending'，则不添加过滤条件，返回所有评论
 
+        // 如果是审核界面（没有itemId），获取所有未审核的评论
+        if (isNaN(itemId)) {
+            const offset = (page - 1) * pageSize;
+            
+            // 获取所有未审核的评论（包括回复）
+            const totalCount = await Comment.count({
+                where: whereCondition
+            });
+
+            const allComments = await Comment.findAll({
+                where: whereCondition,
+                order: [['createdAt', 'DESC']],
+                limit: pageSize,
+                offset: offset
+            });
+
+            // 处理每一行的数据
+            const formattedComments = allComments.map(comment => {
+                const row = comment.get({ plain: true });
+                row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt);
+                return row;
+            });
+
+            // 计算分页信息
+            const totalPages = Math.ceil(totalCount / pageSize);
+            const hasNextPage = page < totalPages;
+            const hasPrevPage = page > 1;
+
+            ctx.body = {
+                success: true,
+                comments: formattedComments,
+                pagination: {
+                    page: page,
+                    pageSize: pageSize,
+                    totalCount: totalCount,
+                    totalPages: totalPages,
+                    hasNextPage: hasNextPage,
+                    hasPrevPage: hasPrevPage
+                }
+            };
+            return;
+        }
+
+        // 如果是具体页面的评论，使用原来的逻辑
+        // 首先获取所有顶级评论（不包含回复）
+        const topLevelWhereCondition = { ...whereCondition, reply: 0 };
+        
         // 计算偏移量
         const offset = (page - 1) * pageSize;
         
-        // 获取总数
+        // 获取顶级评论总数
         const totalCount = await Comment.count({
-            where: whereCondition
+            where: topLevelWhereCondition
         });
 
-        const comments = await Comment.findAll({
-            where: whereCondition,
+        // 获取当前页的顶级评论
+        const topLevelComments = await Comment.findAll({
+            where: topLevelWhereCondition,
             order: [['createdAt', 'DESC']],
             limit: pageSize,
             offset: offset
         });
 
-        // 处理每一行的数据
-        const formattedComments = comments.map(comment => {
+        // 获取这些顶级评论的所有回复（包括多层回复）
+        const topLevelIds = topLevelComments.map(comment => comment.id);
+        let allReplies = [];
+        
+        if (topLevelIds.length > 0) {
+            // 递归获取所有回复
+            const getAllReplies = async (parentIds) => {
+                if (parentIds.length === 0) return [];
+                
+                const replies = await Comment.findAll({
+                    where: {
+                        ...whereCondition,
+                        reply: { [Op.in]: parentIds }
+                    },
+                    order: [['createdAt', 'ASC']]
+                });
+                
+                if (replies.length > 0) {
+                    const replyIds = replies.map(reply => reply.id);
+                    const nestedReplies = await getAllReplies(replyIds);
+                    return [...replies, ...nestedReplies];
+                }
+                
+                return replies;
+            };
+            
+            allReplies = await getAllReplies(topLevelIds);
+        }
+
+        // 处理顶级评论数据
+        const formattedTopLevelComments = topLevelComments.map(comment => {
             const row = comment.get({ plain: true });
-            row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt); // 格式化时间
+            row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt);
+            row.replies = []; // 初始化回复数组
             return row;
         });
 
-        // 组织评论和回复
-        const commentsMap = {};
-        formattedComments.forEach(comment => {
-            if (!comment.reply) {
-                // 顶级评论
-                comment.replies = []; // 初始化回复数组
-                commentsMap[comment.id] = comment; // 将顶级评论存入 map
-            } else {
-                // 回复评论
-                const parentComment = commentsMap[comment.reply];
-                if (parentComment) {
-                    parentComment.replies.push(comment); // 将回复添加到对应的顶级评论
-                }
-            }
+        // 处理回复数据
+        const formattedReplies = allReplies.map(reply => {
+            const row = reply.get({ plain: true });
+            row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt);
+            return row;
         });
 
-        // 只返回顶级评论，并重新按创建时间倒序排列
-        const topLevelComments = Object.values(commentsMap).sort((a, b) => {
-            return new Date(b.createdAt) - new Date(a.createdAt);
+        // 将所有回复关联到对应的顶级评论
+        formattedReplies.forEach(reply => {
+            // 找到回复的根父评论
+            let rootParentId = reply.reply;
+            let currentReply = reply;
+            
+            // 向上查找直到找到顶级评论
+            while (currentReply && currentReply.reply !== 0) {
+                const parentReply = formattedReplies.find(r => r.id === currentReply.reply);
+                if (parentReply) {
+                    rootParentId = parentReply.reply;
+                    currentReply = parentReply;
+                } else {
+                    break;
+                }
+            }
+            
+            // 将回复添加到对应的顶级评论
+            const parentComment = formattedTopLevelComments.find(comment => comment.id === rootParentId);
+            if (parentComment) {
+                parentComment.replies.push(reply);
+            }
         });
 
         // 计算分页信息
@@ -230,7 +319,7 @@ async function getComments(ctx, next) {
 
         ctx.body = {
             success: true,
-            comments: topLevelComments,
+            comments: formattedTopLevelComments,
             pagination: {
                 page: page,
                 pageSize: pageSize,
@@ -242,6 +331,14 @@ async function getComments(ctx, next) {
         };
     } catch (error) {
         console.error('Get comments error:', error);
+        console.error('Error details:', {
+            itemId,
+            type,
+            approvalStatus,
+            page,
+            pageSize,
+            whereCondition: JSON.stringify(whereCondition)
+        });
         ctx.status = 500;
         ctx.body = {
             success: false,
