@@ -957,7 +957,7 @@ async function addStoryRelation(ctx, next) {
 async function getStoryRelations(ctx, next) {
     const { storyId } = ctx.params;
     try {
-        // 查询所有未删除的关联
+        // 查询当前剧情主动关联的其他剧情
         const relations = await StoryRelation.findAll({
             where: {
                 storyId,
@@ -965,8 +965,55 @@ async function getStoryRelations(ctx, next) {
             }
         });
 
+        // 查询其他剧情关联当前剧情的记录（反向关联）
+        const reverseRelations = await StoryRelation.findAll({
+            where: {
+                relatedId: storyId,
+                isDeleted: 0
+            }
+        });
+
+        // 处理反向关联，转换为当前剧情的视角
+        const processedReverseRelations = reverseRelations.map(rel => {
+            let relationType = rel.relationType;
+            let note = rel.note || '';
+            
+            // 处理前传/后续的互相关联
+            if (rel.relationType === 'prequel') {
+                relationType = 'sequel';
+                note = rel.note || '前传';
+            } else if (rel.relationType === 'sequel') {
+                relationType = 'prequel';
+                note = rel.note || '后续';
+            }
+            // related和parallel保持相同类型
+            
+            return {
+                id: rel.id,
+                storyId: rel.relatedId, // 当前剧情ID
+                relatedId: rel.storyId, // 关联的剧情ID
+                relationType,
+                note
+            };
+        });
+
+        // 合并所有关联
+        const allRelations = [...relations, ...processedReverseRelations];
+        
+        // 去重（基于relatedId和relationType）
+        const uniqueRelations = [];
+        const seen = new Set();
+        
+        allRelations.forEach(rel => {
+            const key = `${rel.relatedId}-${rel.relationType}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                uniqueRelations.push(rel);
+            }
+        });
+
         // 查询被关联剧情的详细信息
-        const relatedIds = relations.map(rel => rel.relatedId);
+        const relatedIds = uniqueRelations.map(rel => rel.relatedId);
         let relatedStories = [];
         if (relatedIds.length > 0) {
             relatedStories = await Story.findAll({
@@ -976,13 +1023,14 @@ async function getStoryRelations(ctx, next) {
                 }
             });
         }
+        
         // 组装返回
         const relatedMap = {};
         relatedStories.forEach(story => {
             relatedMap[story.id] = story.get({ plain: true });
         });
 
-        const result = relations.map(rel => ({
+        const result = uniqueRelations.map(rel => ({
             id: rel.id,
             storyId: rel.storyId,
             relatedId: rel.relatedId,
@@ -1025,11 +1073,50 @@ async function deleteStoryRelation(ctx, next) {
             { isDeleted: 1 },
             { where: { id } }
         );
+
+        // 直接删除关联记录，无需处理反向关联
         ctx.body = { success: true, message: '删除关联成功' };
     } catch (error) {
         console.error('删除剧情关联失败:', error);
         ctx.status = 500;
         ctx.body = { success: false, message: '删除剧情关联失败' };
+    }
+}
+
+// 编辑剧情关联
+// PUT /api/story-relation/:id
+async function updateStoryRelation(ctx, next) {
+    const { id } = ctx.params;
+    const { relationType, note } = ctx.request.body;
+    
+    if (!relationType) {
+        ctx.status = 400;
+        ctx.body = { success: false, message: '关联类型不能为空' };
+        return;
+    }
+    
+    try {
+        const rel = await StoryRelation.findOne({ where: { id, isDeleted: 0 } });
+        if (!rel) {
+            ctx.status = 404;
+            ctx.body = { success: false, message: '关联不存在' };
+            return;
+        }
+        
+        // 更新关联信息
+        await StoryRelation.update({
+            relationType,
+            note: note || '',
+            updatedAt: new Date()
+        }, {
+            where: { id }
+        });
+        
+        ctx.body = { success: true, message: '更新关联成功' };
+    } catch (error) {
+        console.error('更新剧情关联失败:', error);
+        ctx.status = 500;
+        ctx.body = { success: false, message: '更新剧情关联失败' };
     }
 }
 
@@ -1108,6 +1195,7 @@ export default {
     'POST /api/story-relation/add': addStoryRelation,
     'GET /api/story-relation/:storyId': getStoryRelations,
     'POST /api/story-relation/delete': deleteStoryRelation,
+    'PUT /api/story-relation/:id': updateStoryRelation,
     'GET /api/stories': searchStories
 };
 
