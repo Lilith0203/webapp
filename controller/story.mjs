@@ -230,14 +230,29 @@ async function getStorySetDetail(ctx, next) {
             
             // 按照关联表中的排序顺序排序
             allStories.sort((a, b) => {
-                // 处理null或undefined的情况
-                if (!a.onlineAt && !b.onlineAt) return 0;
-                if (!a.onlineAt) return sortDirection === 'ASC' ? 1 : -1;
-                if (!b.onlineAt) return sortDirection === 'ASC' ? -1 : 1;
+                // 首先按时间排序
+                if (a.onlineAt && b.onlineAt) {
+                    const timeComparison = sortDirection === 'ASC' 
+                        ? a.onlineAt.localeCompare(b.onlineAt) 
+                        : b.onlineAt.localeCompare(a.onlineAt);
+                    
+                    // 如果时间不同，按时间排序
+                    if (timeComparison !== 0) {
+                        return timeComparison;
+                    }
+                } else if (!a.onlineAt && !b.onlineAt) {
+                    // 如果都没有时间，继续按名字排序
+                } else if (!a.onlineAt) {
+                    return sortDirection === 'ASC' ? 1 : -1;
+                } else if (!b.onlineAt) {
+                    return sortDirection === 'ASC' ? -1 : 1;
+                }
                 
+                // 时间相同或都没有时间时，按名字排序
+                // 倒序时名字也按倒序排列
                 return sortDirection === 'ASC' 
-                    ? a.onlineAt.localeCompare(b.onlineAt) 
-                    : b.onlineAt.localeCompare(a.onlineAt);
+                    ? a.title.localeCompare(b.title)
+                    : b.title.localeCompare(a.title);
             });
         }
         
