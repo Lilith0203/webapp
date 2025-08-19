@@ -1191,6 +1191,173 @@ async function searchStories(ctx, next) {
     }
 }
 
+// 获取剧情在指定合集中的排序信息（上一个和下一个剧情）
+// GET /api/story-order/:storyId?setId=1&sortDirection=DESC
+async function getStoryOrder(ctx, next) {
+  const { storyId } = ctx.params;
+  const { setId, sortDirection = 'DESC' } = ctx.query;
+  
+  if (!storyId || !setId) {
+    ctx.status = 400;
+    ctx.body = {
+      success: false,
+      message: 'storyId和setId参数不能为空'
+    };
+    return;
+  }
+  
+  try {
+    // 使用和getStorySetDetail完全一样的逻辑
+    const storySet = await StorySet.findOne({
+      where: {
+        id: parseInt(setId),
+        isDeleted: 0
+      }
+    });
+    
+    if (!storySet) {
+      ctx.status = 404;
+      ctx.body = {
+        success: false,
+        message: '剧情合集不存在'
+      };
+      return;
+    }
+    
+    // 收集当前合集及所有子合集的ID
+    let allSetIds = [parseInt(setId)];
+    if (storySet.parentId === 0) {
+      // 如果是父合集，获取其所有子合集
+      const childSets = await StorySet.findAll({
+        where: {
+          parentId: parseInt(setId),
+          isDeleted: 0
+        },
+        order: [
+          ['sort', 'ASC'],
+          ['onlineAt', 'ASC']
+        ]
+      });
+      allSetIds = allSetIds.concat(childSets.map(child => child.id));
+    }
+    
+    // 获取所有相关合集中的剧情关联
+    const relations = await StorySetRel.findAll({
+      where: {
+        setId: {
+          [Op.in]: allSetIds
+        },
+        isDeleted: 0
+      },
+      order: [
+        ['sort', 'ASC']
+      ]
+    });
+    
+    const storyIds = [...new Set(relations.map(rel => rel.storyId))]; // 使用Set去重
+    
+    // 获取所有剧情
+    let allStories = [];
+    if (storyIds.length > 0) {
+      allStories = await Story.findAll({
+        where: {
+          id: {
+            [Op.in]: storyIds
+          },
+          isDeleted: 0
+        }
+      });
+      
+      // 处理剧情数据，使用和getStorySetDetail完全一样的逻辑
+      allStories = allStories.map(story => {
+        const storyData = story.get({ plain: true });
+        
+        // 格式化日期
+        storyData.createdAt = utils.YYYYMMDDHHmmss(storyData.createdAt);
+        storyData.updatedAt = utils.YYYYMMDDHHmmss(storyData.updatedAt);
+        if (storyData.onlineAt) {
+          storyData.onlineAt = utils.YYYYMMDDHHmmss(storyData.onlineAt);
+        }
+        
+        // 添加排序信息（使用当前合集中的排序，如果存在）
+        const currentSetRelation = relations.find(rel => rel.storyId === storyData.id && rel.setId === parseInt(setId));
+        storyData.sort = currentSetRelation ? currentSetRelation.sort : 0;
+        
+        return storyData;
+      });
+      
+      // 使用和getStorySetDetail完全一样的排序逻辑，但根据sortDirection调整
+      allStories.sort((a, b) => {
+        // 首先按时间排序
+        if (a.onlineAt && b.onlineAt) {
+          const timeComparison = a.onlineAt.localeCompare(b.onlineAt);
+          
+          // 如果时间不同，按时间排序
+          if (timeComparison !== 0) {
+            // 根据sortDirection调整时间排序方向
+            return sortDirection === 'ASC' ? timeComparison : -timeComparison;
+          }
+        } else if (!a.onlineAt && !b.onlineAt) {
+          // 如果都没有时间，继续按名字排序
+        } else if (!a.onlineAt) {
+          return sortDirection === 'ASC' ? 1 : -1;
+        } else if (!b.onlineAt) {
+          return sortDirection === 'ASC' ? -1 : 1;
+        }
+        
+        // 时间相同或都没有时间时，按名字排序
+        const nameComparison = a.title.localeCompare(b.title);
+        // 根据sortDirection调整名字排序方向
+        return sortDirection === 'ASC' ? nameComparison : -nameComparison;
+      });
+    }
+    
+    // 找到当前剧情的索引
+    const currentIndex = allStories.findIndex(story => story.id === parseInt(storyId));
+    
+    if (currentIndex === -1) {
+      ctx.body = {
+        success: true,
+        data: {
+          prev: null,
+          next: null,
+          current: null,
+          total: allStories.length
+        }
+      };
+      return;
+    }
+    
+    // 获取上一个和下一个剧情
+    const prev = currentIndex > 0 ? allStories[currentIndex - 1] : null;
+    const next = currentIndex < allStories.length - 1 ? allStories[currentIndex + 1] : null;
+    const current = allStories[currentIndex];
+    
+    ctx.body = {
+      success: true,
+      data: {
+        prev,
+        next,
+        current: {
+          id: current.id,
+          title: current.title,
+          onlineAt: current.onlineAt,
+          sort: current.sort,
+          position: currentIndex + 1
+        },
+        total: allStories.length
+      }
+    };
+  } catch (error) {
+    console.error('获取剧情排序信息失败:', error);
+    ctx.status = 500;
+    ctx.body = {
+      success: false,
+      message: '获取剧情排序信息失败'
+    };
+  }
+}
+
 // 导出接口
 export default {
     // 剧情合集接口
@@ -1211,6 +1378,9 @@ export default {
     'GET /api/story-relation/:storyId': getStoryRelations,
     'POST /api/story-relation/delete': deleteStoryRelation,
     'PUT /api/story-relation/:id': updateStoryRelation,
-    'GET /api/stories': searchStories
+    'GET /api/stories': searchStories,
+    
+    // 排序接口
+    'GET /api/story-order/:storyId': getStoryOrder
 };
 
