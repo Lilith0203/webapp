@@ -1195,7 +1195,7 @@ async function searchStories(ctx, next) {
 // GET /api/story-order/:storyId?setId=1&sortDirection=DESC
 async function getStoryOrder(ctx, next) {
   const { storyId } = ctx.params;
-  const { setId, sortDirection = 'DESC' } = ctx.query;
+  const { setId, sortDirection} = ctx.query;
   
   if (!storyId || !setId) {
     ctx.status = 400;
@@ -1290,12 +1290,13 @@ async function getStoryOrder(ctx, next) {
       allStories.sort((a, b) => {
         // 首先按时间排序
         if (a.onlineAt && b.onlineAt) {
-          const timeComparison = a.onlineAt.localeCompare(b.onlineAt);
+          const timeComparison = sortDirection === 'ASC' 
+            ? a.onlineAt.localeCompare(b.onlineAt) 
+            : b.onlineAt.localeCompare(a.onlineAt);
           
           // 如果时间不同，按时间排序
           if (timeComparison !== 0) {
-            // 根据sortDirection调整时间排序方向
-            return sortDirection === 'ASC' ? timeComparison : -timeComparison;
+            return timeComparison;
           }
         } else if (!a.onlineAt && !b.onlineAt) {
           // 如果都没有时间，继续按名字排序
@@ -1306,9 +1307,10 @@ async function getStoryOrder(ctx, next) {
         }
         
         // 时间相同或都没有时间时，按名字排序
-        const nameComparison = a.title.localeCompare(b.title);
-        // 根据sortDirection调整名字排序方向
-        return sortDirection === 'ASC' ? nameComparison : -nameComparison;
+        // 倒序时名字也按倒序排列
+        return sortDirection === 'ASC' 
+          ? a.title.localeCompare(b.title)
+          : b.title.localeCompare(a.title);
       });
     }
     
