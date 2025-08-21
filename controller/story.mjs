@@ -853,7 +853,7 @@ async function getStoryDetail(ctx, next) {
                 },
                 isDeleted: 0
             },
-            attributes: ['id', 'name']
+            attributes: ['id', 'name', 'level', 'parentId']
         });
 
         // 处理剧情数据
@@ -877,11 +877,11 @@ async function getStoryDetail(ctx, next) {
             storyData.pictures = [];
         }
 
-        // 添加合集信息
-        storyData.sets = sets.map(set => ({
-            id: set.id,
-            name: set.name
-        }));
+        // 添加合集信息，包含完整的合集数据
+        storyData.sets = sets.map(set => {
+            const setData = set.get({ plain: true });
+            return setData;
+        });
 
         ctx.body = {
             success: true,
@@ -1035,14 +1035,53 @@ async function getStoryRelations(ctx, next) {
                 where: {
                     id: relatedIds,
                     isDeleted: 0
-                }
+                },
+                attributes: ['id', 'title'] // 只获取必要的字段
+            });
+        }
+        
+        // 获取所有相关合集的关联信息
+        const allSetRels = await StorySetRel.findAll({
+            where: {
+                storyId: {
+                    [Op.in]: relatedIds
+                },
+                isDeleted: 0
+            }
+        });
+        
+        // 获取所有相关合集ID
+        const allSetIds = [...new Set(allSetRels.map(rel => rel.setId))];
+        
+        // 获取所有相关合集信息
+        let allSets = [];
+        if (allSetIds.length > 0) {
+            allSets = await StorySet.findAll({
+                where: {
+                    id: {
+                        [Op.in]: allSetIds
+                    },
+                    isDeleted: 0
+                },
+                attributes: ['id', 'name', 'level', 'parentId']
             });
         }
         
         // 组装返回
         const relatedMap = {};
         relatedStories.forEach(story => {
-            relatedMap[story.id] = story.get({ plain: true });
+            const storyData = story.get({ plain: true });
+            
+            // 添加合集信息
+            const storySetIds = allSetRels
+                .filter(rel => rel.storyId === storyData.id)
+                .map(rel => rel.setId);
+            
+            storyData.sets = allSets
+                .filter(set => storySetIds.includes(set.id))
+                .map(set => set.get({ plain: true }));
+            
+            relatedMap[storyData.id] = storyData;
         });
 
         const result = uniqueRelations.map(rel => ({
