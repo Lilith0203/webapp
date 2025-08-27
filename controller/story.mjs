@@ -225,6 +225,9 @@ async function getStorySetDetail(ctx, next) {
                 // 确保isRecommended字段存在
                 storyData.isRecommended = !!storyData.isRecommended;
                 
+                // 移除detail字段，列表不需要返回详细内容
+                delete storyData.detail;
+                
                 return storyData;
             });
             
