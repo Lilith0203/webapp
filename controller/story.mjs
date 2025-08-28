@@ -1310,23 +1310,26 @@ async function getStoryOrder(ctx, next) {
         }
       });
       
-      // 处理剧情数据，使用和getStorySetDetail完全一样的逻辑
-      allStories = allStories.map(story => {
-        const storyData = story.get({ plain: true });
-        
-        // 格式化日期
-        storyData.createdAt = utils.YYYYMMDDHHmmss(storyData.createdAt);
-        storyData.updatedAt = utils.YYYYMMDDHHmmss(storyData.updatedAt);
-        if (storyData.onlineAt) {
-          storyData.onlineAt = utils.YYYYMMDDHHmmss(storyData.onlineAt);
-        }
-        
-        // 添加排序信息（使用当前合集中的排序，如果存在）
-        const currentSetRelation = relations.find(rel => rel.storyId === storyData.id && rel.setId === parseInt(setId));
-        storyData.sort = currentSetRelation ? currentSetRelation.sort : 0;
-        
-        return storyData;
-      });
+             // 处理剧情数据，使用和getStorySetDetail完全一样的逻辑
+       allStories = allStories.map(story => {
+         const storyData = story.get({ plain: true });
+         
+         // 格式化日期
+         storyData.createdAt = utils.YYYYMMDDHHmmss(storyData.createdAt);
+         storyData.updatedAt = utils.YYYYMMDDHHmmss(storyData.updatedAt);
+         if (storyData.onlineAt) {
+           storyData.onlineAt = utils.YYYYMMDDHHmmss(storyData.onlineAt);
+         }
+         
+         // 添加排序信息（使用当前合集中的排序，如果存在）
+         const currentSetRelation = relations.find(rel => rel.storyId === storyData.id && rel.setId === parseInt(setId));
+         storyData.sort = currentSetRelation ? currentSetRelation.sort : 0;
+         
+         // 移除detail字段，排序信息不需要返回详细内容
+         delete storyData.detail;
+         
+         return storyData;
+       });
       
       // 使用和getStorySetDetail完全一样的排序逻辑，但根据sortDirection调整
       allStories.sort((a, b) => {
