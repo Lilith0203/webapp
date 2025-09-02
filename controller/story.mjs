@@ -236,8 +236,8 @@ async function getStorySetDetail(ctx, next) {
                 // 首先按时间排序
                 if (a.onlineAt && b.onlineAt) {
                     const timeComparison = sortDirection === 'ASC' 
-                        ? a.onlineAt.localeCompare(b.onlineAt) 
-                        : b.onlineAt.localeCompare(a.onlineAt);
+                        ? a.onlineAt.localeCompare(b.onlineAt, 'zh-CN') 
+                        : b.onlineAt.localeCompare(a.onlineAt, 'zh-CN');
                     
                     // 如果时间不同，按时间排序
                     if (timeComparison !== 0) {
@@ -254,8 +254,8 @@ async function getStorySetDetail(ctx, next) {
                 // 时间相同或都没有时间时，按名字排序
                 // 倒序时名字也按倒序排列
                 return sortDirection === 'ASC' 
-                    ? a.title.localeCompare(b.title)
-                    : b.title.localeCompare(a.title);
+                    ? a.title.localeCompare(b.title, 'zh-CN')
+                    : b.title.localeCompare(a.title, 'zh-CN');
             });
         }
         
@@ -1336,8 +1336,8 @@ async function getStoryOrder(ctx, next) {
         // 首先按时间排序
         if (a.onlineAt && b.onlineAt) {
           const timeComparison = sortDirection === 'ASC' 
-            ? a.onlineAt.localeCompare(b.onlineAt) 
-            : b.onlineAt.localeCompare(a.onlineAt);
+            ? a.onlineAt.localeCompare(b.onlineAt, 'zh-CN') 
+            : b.onlineAt.localeCompare(a.onlineAt, 'zh-CN');
           
           // 如果时间不同，按时间排序
           if (timeComparison !== 0) {
@@ -1354,8 +1354,8 @@ async function getStoryOrder(ctx, next) {
         // 时间相同或都没有时间时，按名字排序
         // 倒序时名字也按倒序排列
         return sortDirection === 'ASC' 
-          ? a.title.localeCompare(b.title)
-          : b.title.localeCompare(a.title);
+          ? a.title.localeCompare(b.title, 'zh-CN')
+          : b.title.localeCompare(a.title, 'zh-CN');
       });
     }
     
