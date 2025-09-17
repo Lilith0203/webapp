@@ -34,6 +34,72 @@ function extractTags(items) {
     return tagSet;
 }
 
+/**
+ * 解析materials字段，兼容旧数据格式
+ * @param {string} materialsStr JSON字符串
+ * @returns {Array} 材料数组，格式为 [{id: number, quantity: number}]
+ */
+function parseMaterials(materialsStr) {
+    try {
+        const materials = JSON.parse(materialsStr);
+        if (!Array.isArray(materials)) {
+            return [];
+        }
+        
+        // 兼容旧数据格式：如果是数字数组，转换为新格式
+        return materials.map(item => {
+            if (typeof item === 'number') {
+                // 旧格式：只有ID，默认数量为1
+                return { id: item, quantity: 1 };
+            } else if (typeof item === 'object' && item.id !== undefined) {
+                // 新格式：包含ID和数量
+                return { 
+                    id: parseInt(item.id), 
+                    quantity: parseInt(item.quantity) || 1 
+                };
+            }
+            return null;
+        }).filter(Boolean);
+    } catch (e) {
+        console.error('Parse materials error:', e);
+        return [];
+    }
+}
+
+/**
+ * 处理materials字段，确保存储格式正确
+ * @param {Array|string} materials 材料数据
+ * @returns {string} JSON字符串
+ */
+function processMaterials(materials) {
+    if (typeof materials === 'string') {
+        try {
+            // 如果是JSON字符串，先解析再处理
+            const parsed = JSON.parse(materials);
+            return JSON.stringify(parsed);
+        } catch (e) {
+            return '[]';
+        }
+    } else if (Array.isArray(materials)) {
+        // 确保每个材料项都有正确的格式
+        const processed = materials.map(item => {
+            if (typeof item === 'number') {
+                return { id: item, quantity: 1 };
+            } else if (typeof item === 'object' && item.id !== undefined) {
+                return { 
+                    id: parseInt(item.id), 
+                    quantity: parseInt(item.quantity) || 1 
+                };
+            }
+            return null;
+        }).filter(Boolean);
+        
+        return JSON.stringify(processed);
+    }
+    
+    return '[]';
+}
+
 //GET /api/works
 async function works(ctx, next) {
     let size = ctx.query.size ? parseInt(ctx.query.size) : 12;
@@ -95,7 +161,7 @@ async function works(ctx, next) {
         try {
             row.tags = JSON.parse(row.tags || '[]');
             row.pictures = JSON.parse(row.pictures || '[]');
-            row.materials = JSON.parse(row.materials || '[]');
+            row.materials = parseMaterials(row.materials || '[]');
         } catch (e) {
             row.tags = [];
             row.pictures = [];
@@ -213,9 +279,7 @@ async function works_add(ctx, next) {
             : workData.pictures;
             
         // 处理 materials 数组
-        const materials = Array.isArray(workData.materials) 
-            ? JSON.stringify(workData.materials)
-            : workData.materials;
+        const materials = processMaterials(workData.materials);
 
         // 创建新文章
         const works = await Works.create({
@@ -274,9 +338,7 @@ async function works_edit(ctx, next) {
             : updateData.pictures;
             
         // 处理 materials 数组
-        const materials = Array.isArray(updateData.materials) 
-            ? JSON.stringify(updateData.materials)
-            : updateData.materials;
+        const materials = processMaterials(updateData.materials);
 
         // 更新文章
         await Works.update({
@@ -329,7 +391,7 @@ async function works_detail(ctx, next) {
         try {
             workData.tags = JSON.parse(workData.tags || '[]');
             workData.pictures = JSON.parse(workData.pictures || '[]');
-            workData.materials = JSON.parse(workData.materials || '[]');
+            workData.materials = parseMaterials(workData.materials || '[]');
         } catch (e) {
             workData.tags = [];
             workData.pictures = [];
