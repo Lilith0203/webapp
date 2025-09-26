@@ -100,7 +100,7 @@ async function updateMaterialType(ctx, next) {
 //POST /api/material
 async function material(ctx, next) {
     // 获取请求体中的参数
-    const { ids, showAll } = ctx.request.body;
+    const { ids, showAll, sortBy, sortOrder } = ctx.request.body;
     
     // 构建查询条件
     let whereCondition = {
@@ -126,9 +126,22 @@ async function material(ctx, next) {
         };
     }
     
+    // 构建排序条件
+    let orderCondition = [['name', 'ASC']]; // 默认按名称倒序
+    
+    if (sortBy) {
+        const validSortFields = ['name', 'type', 'substance', 'size', 'price', 'stock', 'shop', 'updatedAt', 'createdAt'];
+        const validSortOrders = ['ASC', 'DESC'];
+        
+        if (validSortFields.includes(sortBy)) {
+            const order = validSortOrders.includes(sortOrder?.toUpperCase()) ? sortOrder.toUpperCase() : 'ASC';
+            orderCondition = [[sortBy, order]];
+        }
+    }
+    
     let materials = await Material.findAll({
         where: whereCondition,
-        order: [['updatedAt', 'DESC']]
+        order: orderCondition
     });
     
     ctx.body = {
