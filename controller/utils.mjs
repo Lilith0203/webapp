@@ -7,7 +7,11 @@ import ConfigSetting from '../util/config.mjs';
 import { Op } from 'sequelize';
 
 // 配置文件上传
-const upload = multer();
+const upload = multer({
+    limits: {
+        fileSize: 200 * 1024 * 1024 // 200MB 文件大小限制
+    }
+});
 
 // 文件上传处理
 async function uploadFile(ctx, next) {

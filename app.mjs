@@ -71,7 +71,11 @@ app.use(async (ctx, next) => {
 //处理跨域
 app.use(cors());
 //解析request.body:
-app.use(bodyParser());
+app.use(bodyParser({
+    jsonLimit: '200mb',
+    textLimit: '200mb',
+    formLimit: '200mb'
+}));
 
 //添加 JWT 错误处理中间件
 app.use(async (ctx, next) => {
