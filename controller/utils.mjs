@@ -43,7 +43,8 @@ async function uploadFile(ctx, next) {
 async function refreshSignedUrl(ctx, next) {
     if (ctx.request.body.url) {
         let objectName = getObjectNameFromUrl(ctx.request.body.url);
-        let new_url = await generateSignedUrl(objectName, ctx.request.body.url);
+        let isVideo = isVideoFile(objectName);
+        let new_url = await generateSignedUrl(objectName, ctx.request.body.url, isVideo);
         ctx.body = {
             success: true,
             url: new_url
@@ -52,7 +53,8 @@ async function refreshSignedUrl(ctx, next) {
         let urls = [];
         for (let url of ctx.request.body.urls) {
             let objectName = getObjectNameFromUrl(url);
-            let new_url = await generateSignedUrl(objectName, url);
+            let isVideo = isVideoFile(objectName);
+            let new_url = await generateSignedUrl(objectName, url, isVideo);
             urls.push(new_url);
         }
         ctx.body = {
@@ -72,6 +74,13 @@ function generateFileName(originalName) {
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 1000);
     return `${timestamp}-${random}.${ext}`;
+}
+
+// 判断是否为视频文件
+function isVideoFile(objectName) {
+    const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', 'm4v', '3gp', 'ogv'];
+    const ext = objectName.split('.').pop().toLowerCase();
+    return videoExtensions.includes(ext);
 }
 
 // 从完整URL中提取objectName

@@ -225,6 +225,10 @@ export const Works = sequelize.define('Works', {
         type: DataTypes.TEXT,
         allowNull: true
     },
+    video: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
     tags: {
         type: DataTypes.STRING,
         allowNull: true

@@ -162,10 +162,12 @@ async function works(ctx, next) {
             row.tags = JSON.parse(row.tags || '[]');
             row.pictures = JSON.parse(row.pictures || '[]');
             row.materials = parseMaterials(row.materials || '[]');
+            row.video = row.video || '';
         } catch (e) {
             row.tags = [];
             row.pictures = [];
             row.materials = [];
+            row.video = '';
         }
         row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt);
         row.updatedAt = utils.YYYYMMDDHHmmss(row.updatedAt);
@@ -288,6 +290,7 @@ async function works_add(ctx, next) {
             pictures: pictures,
             tags: tags,
             materials: materials,
+            video: workData.video || '',
             price: workData.price || 0,
             createdAt: new Date(),
             updatedAt: new Date()
@@ -347,6 +350,7 @@ async function works_edit(ctx, next) {
             pictures: pictures,
             tags: tags,
             materials: materials,
+            video: updateData.video || '',
             price: updateData.price || 0,
             updatedAt: new Date()
         }, {
@@ -392,10 +396,12 @@ async function works_detail(ctx, next) {
             workData.tags = JSON.parse(workData.tags || '[]');
             workData.pictures = JSON.parse(workData.pictures || '[]');
             workData.materials = parseMaterials(workData.materials || '[]');
+            workData.video = workData.video || '';
         } catch (e) {
             workData.tags = [];
             workData.pictures = [];
             workData.materials = [];
+            workData.video = '';
         }
         workData.updatedAt = utils.YYYYMMDDHHmmss(workData.updatedAt);
         

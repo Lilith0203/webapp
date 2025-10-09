@@ -30,17 +30,32 @@ function extractImageProcess(url) {
  * 刷新或获取图片URL
  * @param {string} objectName OSS对象名称
  * @param {string} originalUrl 原始URL（可选，用于获取图片处理参数）
+ * @param {boolean} isVideo 是否为视频文件，默认为false
  * @returns {Promise<string>} 带签名的新URL
  */
-export async function generateSignedUrl(objectName, originalUrl = '') {
+export async function generateSignedUrl(objectName, originalUrl = '', isVideo = false) {
     try {
-        // 从原始URL中提取图片处理参数
-        let process = originalUrl ? extractImageProcess(originalUrl) : 'image/resize,w_2400';
+        let process = null;
+        
+        if (isVideo) {
+            // 视频文件不添加图片处理参数
+            process = null;
+        } else {
+            // 图片文件：从原始URL中提取图片处理参数，如果没有则使用默认值
+            process = originalUrl ? extractImageProcess(originalUrl) : 'image/resize,w_2400';
+        }
+        
         // 生成带签名的URL，设置1小时有效期
-        const url = await ossClient.signatureUrl(objectName, {
-            expires: 3600, // 1小时，单位秒
-            process: process ? process : 'image/resize,w_2400'
-        });
+        const options = {
+            expires: 3600 // 1小时，单位秒
+        };
+        
+        // 只有图片文件才添加process参数
+        if (process) {
+            options.process = process;
+        }
+        
+        const url = await ossClient.signatureUrl(objectName, options);
         
         const customDomain = config.get("oss.customDomain");
         return url.replace(
