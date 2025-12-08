@@ -237,6 +237,11 @@ export const Works = sequelize.define('Works', {
         type: DataTypes.TEXT,
         allowNull: true
     },
+    status: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
     isDeleted: {
         type: DataTypes.INTEGER,
         allowNull: false,

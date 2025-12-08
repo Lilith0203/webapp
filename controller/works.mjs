@@ -112,9 +112,17 @@ async function works(ctx, next) {
     // 获取关键词参数
     let keyword = ctx.query.keyword ? ctx.query.keyword.trim() : '';
     
+    // 获取status参数（0表示未完成，1表示完成）
+    let status = ctx.query.status !== undefined ? parseInt(ctx.query.status) : undefined;
+    
     let where = {
         isDeleted: 0
     };
+    
+    // 如果有status筛选，添加status条件
+    if (status !== undefined && (status === 0 || status === 1)) {
+        where.status = status;
+    }
     
     // 如果有标签筛选，添加标签条件
     if (tags.length > 0) {
@@ -292,6 +300,7 @@ async function works_add(ctx, next) {
             materials: materials,
             video: workData.video || '',
             price: workData.price || 0,
+            status: workData.status !== undefined ? parseInt(workData.status) : 0,
             createdAt: new Date(),
             updatedAt: new Date()
         });
@@ -344,7 +353,7 @@ async function works_edit(ctx, next) {
         const materials = processMaterials(updateData.materials);
 
         // 更新文章
-        await Works.update({
+        const updateFields = {
             name: updateData.name,
             description: updateData.description,
             pictures: pictures,
@@ -353,7 +362,14 @@ async function works_edit(ctx, next) {
             video: updateData.video || '',
             price: updateData.price || 0,
             updatedAt: new Date()
-        }, {
+        };
+        
+        // 如果提供了status字段，则更新它
+        if (updateData.status !== undefined) {
+            updateFields.status = parseInt(updateData.status);
+        }
+        
+        await Works.update(updateFields, {
             where: { id: id }
         });
         await clearWorksCache();
