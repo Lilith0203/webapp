@@ -318,6 +318,11 @@ export const Interaction = sequelize.define('interaction', {
         type: DataTypes.INTEGER,
         allowNull: false
     },
+    top: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
     like: {
         type: DataTypes.INTEGER,
         allowNull: false,

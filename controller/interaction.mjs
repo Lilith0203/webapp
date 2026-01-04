@@ -38,6 +38,7 @@ async function likeItem(ctx, next) {
                 itemId,
                 like: 0,
                 weight: 0,
+                top: 0,
                 isDeleted: 0,
                 createdAt: new Date(),
                 updatedAt: new Date()
@@ -165,6 +166,7 @@ async function recommendItem(ctx, next) {
                 itemId,
                 like: 0,
                 weight,
+                top: 0,
                 isDeleted: 0,
                 createdAt: new Date(),
                 updatedAt: new Date()
@@ -185,7 +187,8 @@ async function recommendItem(ctx, next) {
             message: '推荐设置成功',
             data: {
                 like: interaction.like,
-                weight: interaction.weight
+                weight: interaction.weight,
+                top: interaction.top
             }
         };
     } catch (error) {
@@ -194,6 +197,85 @@ async function recommendItem(ctx, next) {
         ctx.body = {
             success: false,
             message: '推荐设置失败'
+        };
+    }
+}
+
+// POST /api/interaction/top - 置顶功能（设置top值）
+async function topItem(ctx, next) {
+    const { type, itemId, top } = ctx.request.body;
+
+    // 验证输入
+    if (!type || !itemId || top === undefined) {
+        ctx.status = 400;
+        ctx.body = {
+            success: false,
+            message: '类型、项目ID和top值不能为空'
+        };
+        return;
+    }
+
+    try {
+        // 查找是否已存在该项目的交互记录
+        let interaction = await Interaction.findOne({
+            where: {
+                type,
+                itemId,
+                isDeleted: 0
+            }
+        });
+
+        if (interaction) {
+            // 如果已存在，则更新top值
+            await Interaction.update(
+                {
+                    top,
+                    updatedAt: new Date()
+                },
+                {
+                    where: {
+                        id: interaction.id
+                    }
+                }
+            );
+        } else {
+            // 如果不存在，则创建新记录
+            await Interaction.create({
+                type,
+                itemId,
+                like: 0,
+                weight: 0,
+                top,
+                isDeleted: 0,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            });
+        }
+
+        // 获取更新后的交互数据
+        interaction = await Interaction.findOne({
+            where: {
+                type,
+                itemId,
+                isDeleted: 0
+            }
+        });
+
+        ctx.body = {
+            success: true,
+            message: '置顶设置成功',
+            data: {
+                like: interaction.like,
+                weight: interaction.weight,
+                top: interaction.top
+            }
+        };
+    } catch (error) {
+        console.error('置顶设置失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '置顶设置失败'
         };
     }
 }
@@ -236,6 +318,7 @@ async function getInteraction(ctx, next) {
                 data: {
                     like: interaction.like,
                     weight: interaction.weight,
+                    top: interaction.top || 0,
                     hasLiked
                 }
             };
@@ -245,6 +328,7 @@ async function getInteraction(ctx, next) {
                 data: {
                     like: 0,
                     weight: 0,
+                    top: 0,
                     hasLiked
                 }
             };
@@ -421,10 +505,176 @@ async function getRecommendedItems(ctx, next) {
     }
 }
 
+// GET /api/top-items - 获取置顶项目列表
+async function getTopItems(ctx, next) {
+    let size = ctx.query.size ? parseInt(ctx.query.size) : 12;
+    let page = ctx.query.page ? parseInt(ctx.query.page) : 1;
+    let type = ctx.query.type ? parseInt(ctx.query.type) : 2; // 默认为作品类型(2)
+    let offset = (page - 1) * size;
+
+    try {
+        // 从交互表中获取置顶的项目ID列表
+        const topItems = await Interaction.findAll({
+            where: {
+                type,
+                top: {
+                    [Op.gt]: 0 // top值大于0
+                },
+                isDeleted: 0
+            },
+            order: [
+                ['top', 'DESC'], // 首先按top值降序排序
+                ['updatedAt', 'DESC'] // 其次按更新时间降序排序
+            ],
+            limit: size,
+            offset: offset
+        });
+
+        // 提取项目ID列表
+        const itemIds = topItems.map(item => item.itemId);
+        
+        // 如果没有置顶项目，直接返回空数组
+        if (itemIds.length === 0) {
+            ctx.body = {
+                success: true,
+                data: {
+                    items: [],
+                    count: 0,
+                    type
+                }
+            };
+            return;
+        }
+
+        let items = [];
+        let processedItems = [];
+
+        // 根据类型获取不同的数据
+        if (type === 2) { // 作品类型
+            // 获取作品详情
+            items = await Works.findAll({
+                where: {
+                    id: {
+                        [Op.in]: itemIds
+                    },
+                    isDeleted: 0
+                }
+            });
+
+            // 处理作品数据
+            processedItems = items.map(item => {
+                const itemData = item.get({ plain: true });
+                
+                // 解析 JSON 字符串为数组
+                try {
+                    itemData.tags = JSON.parse(itemData.tags || '[]');
+                    itemData.pictures = JSON.parse(itemData.pictures || '[]');
+                    itemData.materials = JSON.parse(itemData.materials || '[]');
+                } catch (e) {
+                    itemData.tags = [];
+                    itemData.pictures = [];
+                    itemData.materials = [];
+                }
+                
+                // 确保 link 字段有默认值
+                itemData.link = itemData.link || '';
+                
+                // 格式化日期
+                itemData.createdAt = utils.YYYYMMDDHHmmss(itemData.createdAt);
+                itemData.updatedAt = utils.YYYYMMDDHHmmss(itemData.updatedAt);
+                
+                // 添加top值和权重信息
+                const interaction = topItems.find(rec => rec.itemId === itemData.id);
+                itemData.top = interaction ? interaction.top : 0;
+                itemData.weight = interaction ? interaction.weight : 0;
+                itemData._interactionUpdatedAt = interaction ? interaction.updatedAt : new Date(0);
+                
+                return itemData;
+            });
+        } else if (type === 1) { // 文章类型
+            // 获取文章详情
+            items = await Articles.findAll({
+                where: {
+                    id: {
+                        [Op.in]: itemIds
+                    },
+                    isDeleted: 0
+                }
+            });
+            
+            // 处理文章数据
+            processedItems = items.map(item => {
+                const itemData = item.get({ plain: true });
+                
+                // 解析 JSON 字符串为数组（如果有）
+                try {
+                    if (itemData.tags) itemData.tags = JSON.parse(itemData.tags || '[]');
+                    if (itemData.pictures) itemData.pictures = JSON.parse(itemData.pictures || '[]');
+                } catch (e) {
+                    itemData.tags = itemData.tags || [];
+                    itemData.pictures = itemData.pictures || [];
+                }
+                
+                // 格式化日期
+                itemData.createdAt = utils.YYYYMMDDHHmmss(itemData.createdAt);
+                itemData.updatedAt = utils.YYYYMMDDHHmmss(itemData.updatedAt);
+                
+                // 添加top值和权重信息
+                const interaction = topItems.find(rec => rec.itemId === itemData.id);
+                itemData.top = interaction ? interaction.top : 0;
+                itemData.weight = interaction ? interaction.weight : 0;
+                itemData._interactionUpdatedAt = interaction ? interaction.updatedAt : new Date(0);
+                
+                return itemData;
+            });
+        }
+        // 可以根据需要添加更多类型的处理...
+
+        // 按照原始置顶顺序排序（先按top值，再按更新时间）
+        const sortedItems = itemIds.map(id => 
+            processedItems.find(item => item.id === id)
+        ).filter(Boolean); // 过滤掉可能不存在的项目
+
+        // 删除临时排序字段
+        sortedItems.forEach(item => {
+            delete item._interactionUpdatedAt;
+        });
+
+        // 获取总置顶项目数量
+        const totalCount = await Interaction.count({
+            where: {
+                type,
+                top: {
+                    [Op.gt]: 0
+                },
+                isDeleted: 0
+            }
+        });
+
+        ctx.body = {
+            success: true,
+            data: {
+                items: sortedItems,
+                count: totalCount,
+                type
+            }
+        };
+    } catch (error) {
+        console.error('获取置顶项目失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '获取置顶项目失败'
+        };
+    }
+}
+
 // 导出接口
 export default {
     'POST /api/interaction/like': likeItem,
     'POST /api/interaction/recommend': recommendItem,
+    'POST /api/interaction/top': topItem,
     'GET /api/interaction/:type/:itemId/:clientId?': getInteraction,
-    'GET /api/recommended-items': getRecommendedItems
+    'GET /api/recommended-items': getRecommendedItems,
+    'GET /api/top-items': getTopItems
 }; 
