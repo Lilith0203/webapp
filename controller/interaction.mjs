@@ -330,6 +330,9 @@ async function getRecommendedItems(ctx, next) {
                     itemData.materials = [];
                 }
                 
+                // 确保 link 字段有默认值
+                itemData.link = itemData.link || '';
+                
                 // 格式化日期
                 itemData.createdAt = utils.YYYYMMDDHHmmss(itemData.createdAt);
                 itemData.updatedAt = utils.YYYYMMDDHHmmss(itemData.updatedAt);

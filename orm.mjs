@@ -221,6 +221,10 @@ export const Works = sequelize.define('Works', {
         type: DataTypes.TEXT,
         allowNull: true
     },
+    link: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
     pictures: {
         type: DataTypes.TEXT,
         allowNull: true

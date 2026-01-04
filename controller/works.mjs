@@ -171,11 +171,13 @@ async function works(ctx, next) {
             row.pictures = JSON.parse(row.pictures || '[]');
             row.materials = parseMaterials(row.materials || '[]');
             row.video = row.video || '';
+            row.link = row.link || '';
         } catch (e) {
             row.tags = [];
             row.pictures = [];
             row.materials = [];
             row.video = '';
+            row.link = '';
         }
         row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt);
         row.updatedAt = utils.YYYYMMDDHHmmss(row.updatedAt);
@@ -299,6 +301,7 @@ async function works_add(ctx, next) {
             tags: tags,
             materials: materials,
             video: workData.video || '',
+            link: workData.link || '',
             price: workData.price || 0,
             status: workData.status !== undefined ? parseInt(workData.status) : 0,
             createdAt: new Date(),
@@ -360,6 +363,7 @@ async function works_edit(ctx, next) {
             tags: tags,
             materials: materials,
             video: updateData.video || '',
+            link: updateData.link || '',
             price: updateData.price || 0,
             updatedAt: new Date()
         };
@@ -413,11 +417,13 @@ async function works_detail(ctx, next) {
             workData.pictures = JSON.parse(workData.pictures || '[]');
             workData.materials = parseMaterials(workData.materials || '[]');
             workData.video = workData.video || '';
+            workData.link = workData.link || '';
         } catch (e) {
             workData.tags = [];
             workData.pictures = [];
             workData.materials = [];
             workData.video = '';
+            workData.link = '';
         }
         workData.updatedAt = utils.YYYYMMDDHHmmss(workData.updatedAt);
         
