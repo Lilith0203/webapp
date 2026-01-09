@@ -1,5 +1,5 @@
 import * as utils from 'utility';
-import { Works } from '../orm.mjs';
+import { Works, WorksSet, WorksRelation } from '../orm.mjs';
 import { cleanOssUrls } from '../oss.mjs';
 import { Op } from 'sequelize';
 import cache from '../util/cache.mjs';
@@ -155,11 +155,16 @@ async function works(ctx, next) {
         };
     }
 
+    // 如果有关键词搜索，按创建时间排序；否则按更新时间排序
+    const orderBy = keyword 
+        ? [['createdAt', 'DESC']]  // 搜索时按创建时间从新到旧
+        : [['updatedAt', 'DESC']]; // 非搜索时按更新时间排序
+    
     let {count, rows} = await Works.findAndCountAll({
         where,
         limit: size,
         offset: offset,
-        order: [['updatedAt', 'DESC']]
+        order: orderBy
     });
 
     // 处理每一行的数据
@@ -438,11 +443,410 @@ async function works_detail(ctx, next) {
     }
 }
 
+// POST /api/works-set/add - 创建合集
+async function worksSet_add(ctx, next) {
+    const setData = ctx.request.body;
+    
+    try {
+        // 处理 tags 数组
+        const tags = Array.isArray(setData.tags) 
+            ? JSON.stringify(setData.tags)
+            : setData.tags;
+        
+        // 处理封面图片URL
+        const cover = cleanOssUrls(setData.cover);
+        
+        const worksSet = await WorksSet.create({
+            name: setData.name,
+            description: setData.description || '',
+            cover: cover || '',
+            tags: tags || '[]',
+            createdAt: new Date(),
+            updatedAt: new Date()
+        });
+        
+        ctx.body = {
+            success: true,
+            message: '合集创建成功',
+            data: {
+                id: worksSet.id
+            }
+        };
+    } catch (error) {
+        console.error('创建合集失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '合集创建失败'
+        };
+    }
+}
+
+// POST /api/works-set/edit - 编辑合集
+async function worksSet_edit(ctx, next) {
+    const updateData = ctx.request.body;
+    const id = parseInt(updateData.id);
+    
+    try {
+        const worksSet = await WorksSet.findByPk(id);
+        if (!worksSet) {
+            ctx.status = 404;
+            ctx.body = {
+                success: false,
+                message: '合集不存在'
+            };
+            return;
+        }
+        
+        // 处理 tags 数组
+        const tags = Array.isArray(updateData.tags) 
+            ? JSON.stringify(updateData.tags)
+            : updateData.tags;
+        
+        // 处理封面图片URL
+        const cover = cleanOssUrls(updateData.cover);
+        
+        await WorksSet.update({
+            name: updateData.name,
+            description: updateData.description || '',
+            cover: cover || '',
+            tags: tags || '[]',
+            updatedAt: new Date()
+        }, {
+            where: { id: id }
+        });
+        
+        ctx.body = {
+            success: true,
+            message: '合集更新成功'
+        };
+    } catch (error) {
+        console.error('更新合集失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '合集更新失败'
+        };
+    }
+}
+
+// POST /api/works-set/delete - 删除合集
+async function worksSet_delete(ctx, next) {
+    const id = parseInt(ctx.request.body.id);
+    
+    try {
+        await WorksSet.update({
+            isDeleted: 1,
+            updatedAt: new Date()
+        }, {
+            where: { id: id }
+        });
+        
+        // 同时删除该合集下的所有关联关系
+        await WorksRelation.update({
+            isDeleted: 1
+        }, {
+            where: { setId: id }
+        });
+        
+        ctx.body = {
+            success: true,
+            message: '合集删除成功'
+        };
+    } catch (error) {
+        console.error('删除合集失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '合集删除失败'
+        };
+    }
+}
+
+// GET /api/works-set/list - 获取合集列表
+async function worksSet_list(ctx, next) {
+    try {
+        const sets = await WorksSet.findAll({
+            where: {
+                isDeleted: 0
+            },
+            order: [['updatedAt', 'DESC']]
+        });
+        
+        const setsData = sets.map(set => {
+            const setData = set.get({ plain: true });
+            try {
+                setData.tags = JSON.parse(setData.tags || '[]');
+            } catch (e) {
+                setData.tags = [];
+            }
+            setData.createdAt = utils.YYYYMMDDHHmmss(setData.createdAt);
+            setData.updatedAt = utils.YYYYMMDDHHmmss(setData.updatedAt);
+            return setData;
+        });
+        
+        ctx.body = {
+            success: true,
+            data: {
+                sets: setsData
+            }
+        };
+    } catch (error) {
+        console.error('获取合集列表失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '获取合集列表失败'
+        };
+    }
+}
+
+// POST /api/works-set/add-work - 将作品添加到合集
+async function worksSet_addWork(ctx, next) {
+    const { setId, worksId, order } = ctx.request.body;
+    
+    try {
+        // 检查合集是否存在
+        const worksSet = await WorksSet.findOne({
+            where: {
+                id: setId,
+                isDeleted: 0
+            }
+        });
+        
+        if (!worksSet) {
+            ctx.status = 404;
+            ctx.body = {
+                success: false,
+                message: '合集不存在'
+            };
+            return;
+        }
+        
+        // 检查作品是否存在
+        const work = await Works.findOne({
+            where: {
+                id: worksId,
+                isDeleted: 0
+            }
+        });
+        
+        if (!work) {
+            ctx.status = 404;
+            ctx.body = {
+                success: false,
+                message: '作品不存在'
+            };
+            return;
+        }
+        
+        // 检查是否已经存在关联
+        const existingRelation = await WorksRelation.findOne({
+            where: {
+                setId: setId,
+                worksId: worksId,
+                isDeleted: 0
+            }
+        });
+        
+        if (existingRelation) {
+            ctx.body = {
+                success: false,
+                message: '作品已在该合集中'
+            };
+            return;
+        }
+        
+        // 创建关联关系
+        await WorksRelation.create({
+            setId: setId,
+            worksId: worksId,
+            order: order || 0,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        });
+        
+        ctx.body = {
+            success: true,
+            message: '作品添加成功'
+        };
+    } catch (error) {
+        console.error('添加作品到合集失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '添加作品到合集失败'
+        };
+    }
+}
+
+// GET /api/works-set/:id/works - 获取合集下的所有作品列表
+async function worksSet_works(ctx, next) {
+    const setId = parseInt(ctx.params.id);
+    
+    try {
+        // 检查合集是否存在
+        const worksSet = await WorksSet.findOne({
+            where: {
+                id: setId,
+                isDeleted: 0
+            }
+        });
+        
+        if (!worksSet) {
+            ctx.status = 404;
+            ctx.body = {
+                success: false,
+                message: '合集不存在'
+            };
+            return;
+        }
+        
+        // 获取该合集下的所有关联关系
+        const relations = await WorksRelation.findAll({
+            where: {
+                setId: setId,
+                isDeleted: 0
+            },
+            order: [['order', 'ASC'], ['id', 'ASC']]
+        });
+        
+        const worksIds = relations.map(rel => rel.worksId);
+        
+        if (worksIds.length === 0) {
+            ctx.body = {
+                success: true,
+                data: {
+                    works: [],
+                    count: 0
+                }
+            };
+            return;
+        }
+        
+        // 创建关联关系映射，包含 order 信息
+        const relationMap = new Map();
+        relations.forEach(rel => {
+            relationMap.set(rel.worksId, {
+                order: rel.order || 0,
+                id: rel.id
+            });
+        });
+        
+        // 获取作品详情
+        const works = await Works.findAll({
+            where: {
+                id: {
+                    [Op.in]: worksIds
+                },
+                isDeleted: 0
+            }
+        });
+        
+        // 按照关联关系的 order 排序，order 相同时按创建时间从新到旧排序
+        const worksMap = new Map(works.map(work => [work.id, work]));
+        const sortedWorks = worksIds
+            .map(id => {
+                const work = worksMap.get(id);
+                if (!work) return null;
+                const relation = relationMap.get(id);
+                return {
+                    work,
+                    order: relation ? relation.order : 999999,
+                    createdAt: work.createdAt
+                };
+            })
+            .filter(Boolean)
+            .sort((a, b) => {
+                // 首先按 order 排序
+                if (a.order !== b.order) {
+                    return a.order - b.order;
+                }
+                // order 相同时，按创建时间从新到旧（降序）
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            })
+            .map(item => item.work);
+        
+        // 处理作品数据
+        const worksData = sortedWorks.map(item => {
+            const workData = item.get({ plain: true });
+            try {
+                workData.tags = JSON.parse(workData.tags || '[]');
+                workData.pictures = JSON.parse(workData.pictures || '[]');
+                workData.materials = parseMaterials(workData.materials || '[]');
+                workData.video = workData.video || '';
+                workData.link = workData.link || '';
+            } catch (e) {
+                workData.tags = [];
+                workData.pictures = [];
+                workData.materials = [];
+                workData.video = '';
+                workData.link = '';
+            }
+            workData.createdAt = utils.YYYYMMDDHHmmss(workData.createdAt);
+            workData.updatedAt = utils.YYYYMMDDHHmmss(workData.updatedAt);
+            return workData;
+        });
+        
+        ctx.body = {
+            success: true,
+            data: {
+                works: worksData,
+                count: worksData.length
+            }
+        };
+    } catch (error) {
+        console.error('获取合集作品列表失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '获取合集作品列表失败'
+        };
+    }
+}
+
+// POST /api/works-set/remove-work - 将作品从合集中移出
+async function worksSet_removeWork(ctx, next) {
+    const { setId, worksId } = ctx.request.body;
+    
+    try {
+        await WorksRelation.update({
+            isDeleted: 1,
+            updatedAt: new Date()
+        }, {
+            where: {
+                setId: setId,
+                worksId: worksId,
+                isDeleted: 0
+            }
+        });
+        
+        ctx.body = {
+            success: true,
+            message: '作品移除成功'
+        };
+    } catch (error) {
+        console.error('移除作品失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '移除作品失败'
+        };
+    }
+}
+
 export default {
     'GET /api/works': works,
     'GET /api/worktags': works_tags,
     'GET /api/works/:id': works_detail,
     'POST /api/works/edit': works_edit,
     'POST /api/works/add': works_add,
-    'POST /api/works/delete': works_delete
+    'POST /api/works/delete': works_delete,
+    'POST /api/works-set/add': worksSet_add,
+    'POST /api/works-set/edit': worksSet_edit,
+    'POST /api/works-set/delete': worksSet_delete,
+    'GET /api/works-set/list': worksSet_list,
+    'POST /api/works-set/add-work': worksSet_addWork,
+    'GET /api/works-set/:id/works': worksSet_works,
+    'POST /api/works-set/remove-work': worksSet_removeWork
 }

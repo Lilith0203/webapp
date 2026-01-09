@@ -256,6 +256,70 @@ export const Works = sequelize.define('Works', {
     tableName: 'works'
 });
 
+export const WorksSet = sequelize.define('WorksSet', {
+    //每一列的定义
+    id: {
+        primaryKey: true,
+        autoIncrement: true,
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    description: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    cover: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    tags: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    isDeleted: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    }
+}, {
+    //指定表名
+    tableName: 'works_set'
+});
+
+export const WorksRelation = sequelize.define('WorksRelation', {
+    //每一列的定义
+    id: {
+        primaryKey: true,
+        autoIncrement: true,
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    setId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    worksId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    order: { // 排序
+        type: DataTypes.INTEGER,
+        allowNull: true
+    },
+    isDeleted: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    }
+}, {
+    //指定表名
+    tableName: 'works_relation'
+});
+
 export const Comment = sequelize.define('Comment', {
     //每一列的定义
     id: {
