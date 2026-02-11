@@ -150,6 +150,11 @@ async function getStorySetDetail(ctx, next) {
                         content: {
                             [Op.like]: `%${keyword}%`
                         }
+                    },
+                    {
+                        detail: {
+                            [Op.like]: `%${keyword}%`
+                        }
                     }
                 ];
 
@@ -482,7 +487,7 @@ async function deleteStorySet(ctx, next) {
 
 // 创建剧情
 async function createStory(ctx, next) {
-    const { title, content, pictures, link, onlineAt, setIds, isRecommended } = ctx.request.body;
+    const { title, content, pictures, link, onlineAt, setIds, isRecommended, recReasons } = ctx.request.body;
     
     if (!title) {
         ctx.status = 400;
@@ -524,6 +529,7 @@ async function createStory(ctx, next) {
             link: link || '',
             onlineAt: onlineAt || null,
             isRecommended: isRecommended === 1 ? 1 : 0,
+            recReasons: recReasons || '',
             isDeleted: 0
         }, { transaction: t });
         
@@ -593,7 +599,7 @@ async function createStory(ctx, next) {
 // 更新剧情
 async function updateStory(ctx, next) {
     const { id } = ctx.params;
-    const { title, content, pictures, link, onlineAt, setIds, isRecommended, detail } = ctx.request.body;
+    const { title, content, pictures, link, onlineAt, setIds, isRecommended, detail, recReasons } = ctx.request.body;
     
     if (!title) {
         ctx.status = 400;
@@ -660,6 +666,7 @@ async function updateStory(ctx, next) {
             onlineAt: processedOnlineAt,
             isRecommended: isRecommended === 1 ? 1 : 0,
             detail: detail !== undefined ? detail : story.detail,
+            recReasons: recReasons !== undefined ? recReasons : story.recReasons,
             updatedAt: new Date()
         }, {
             where: { id },
