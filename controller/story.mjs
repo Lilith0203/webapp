@@ -596,19 +596,10 @@ async function createStory(ctx, next) {
     }
 }
 
-// 更新剧情
+// 更新剧情（仅更新传入的字段，未传入的保持不变）
 async function updateStory(ctx, next) {
     const { id } = ctx.params;
     const { title, content, pictures, link, onlineAt, setIds, isRecommended, detail, recReasons } = ctx.request.body;
-    
-    if (!title) {
-        ctx.status = 400;
-        ctx.body = {
-            success: false,
-            message: '剧情标题不能为空'
-        };
-        return;
-    }
     
     // 获取数据库连接
     const t = await Story.sequelize.transaction();
@@ -632,9 +623,10 @@ async function updateStory(ctx, next) {
             return;
         }
         
-        // 处理pictures字段，确保它是JSON字符串
-        let processedPictures = pictures;
+        // 处理pictures字段，确保它是JSON字符串（仅在传入时更新）
+        let processedPictures = story.pictures;
         if (pictures !== undefined) {
+            processedPictures = pictures;
             if (Array.isArray(pictures)) {
                 processedPictures = JSON.stringify(pictures);
             } else if (typeof pictures === 'string') {
@@ -647,24 +639,31 @@ async function updateStory(ctx, next) {
                     processedPictures = JSON.stringify([pictures]);
                 }
             }
-        } else {
-            processedPictures = story.pictures;
         }
         
-        // 处理onlineAt字段，确保它是有效的日期或null
-        let processedOnlineAt = onlineAt;
-        if (onlineAt === '' || onlineAt === 'Invalid date' || !onlineAt) {
-            processedOnlineAt = null;
+        // 处理onlineAt字段，确保它是有效的日期或null（仅在传入时更新）
+        let processedOnlineAt = story.onlineAt;
+        if (onlineAt !== undefined) {
+            processedOnlineAt = onlineAt;
+            if (onlineAt === '' || onlineAt === 'Invalid date' || !onlineAt) {
+                processedOnlineAt = null;
+            }
         }
         
-        // 更新剧情基本信息
+        // 计算最终的推荐状态（仅在传入时更新）
+        let finalIsRecommended = story.isRecommended;
+        if (isRecommended !== undefined) {
+            finalIsRecommended = isRecommended === 1 ? 1 : 0;
+        }
+        
+        // 更新剧情基本信息（仅在字段传入时才覆盖）
         await Story.update({
-            title,
+            title: title !== undefined ? title : story.title,
             content: content !== undefined ? content : story.content,
             pictures: processedPictures,
             link: link !== undefined ? link : story.link,
             onlineAt: processedOnlineAt,
-            isRecommended: isRecommended === 1 ? 1 : 0,
+            isRecommended: finalIsRecommended,
             detail: detail !== undefined ? detail : story.detail,
             recReasons: recReasons !== undefined ? recReasons : story.recReasons,
             updatedAt: new Date()
