@@ -43,9 +43,51 @@ function toPlainText(data) {
   return data?.Content ?? data?.content ?? '';
 }
 
+function toRowText(data) {
+  const subImages = data?.SubImages ?? data?.subImages ?? [];
+  if (!Array.isArray(subImages) || subImages.length === 0) return '';
+
+  const lines = [];
+  for (const sub of subImages) {
+    const rowDetails =
+      sub?.RowInfo?.RowDetails ??
+      sub?.RowInfo?.rowDetails ??
+      sub?.rowInfo?.RowDetails ??
+      sub?.rowInfo?.rowDetails ??
+      [];
+    if (!Array.isArray(rowDetails) || rowDetails.length === 0) continue;
+    for (const r of rowDetails) {
+      const s = r?.RowContent ?? r?.rowContent ?? '';
+      if (typeof s === 'string' && s.trim()) lines.push(s);
+    }
+  }
+  return lines.join('\n');
+}
+
+function toParagraphText(data) {
+  const subImages = data?.SubImages ?? data?.subImages ?? [];
+  if (!Array.isArray(subImages) || subImages.length === 0) return '';
+
+  const paras = [];
+  for (const sub of subImages) {
+    const paraDetails =
+      sub?.ParagraphInfo?.ParagraphDetails ??
+      sub?.ParagraphInfo?.paragraphDetails ??
+      sub?.paragraphInfo?.ParagraphDetails ??
+      sub?.paragraphInfo?.paragraphDetails ??
+      [];
+    if (!Array.isArray(paraDetails) || paraDetails.length === 0) continue;
+    for (const p of paraDetails) {
+      const s = p?.ParagraphContent ?? p?.paragraphContent ?? '';
+      if (typeof s === 'string' && s.trim()) paras.push(s);
+    }
+  }
+  return paras.join('\n\n');
+}
+
 // POST /api/ocr
 async function ocr(ctx) {
-  const { url, type } = ctx.request.body || {};
+  const { url, type, languages, outputRow, outputParagraph, outputTable } = ctx.request.body || {};
 
   if (!url || typeof url !== 'string') {
     ctx.status = 400;
@@ -72,17 +114,47 @@ async function ocr(ctx) {
       throw new Error('Aliyun OCR SDK load failed: RecognizeAllTextRequest missing.');
     }
 
-    const req = new RecognizeAllTextRequest({
-      url,
-      type: ocrType
-    });
+    const reqMap = { url, type: ocrType };
+
+    // Type=MultiLang 时，传语言列表才能拉开效果差异（如 "chn,eng"）
+    if (ocrType === 'MultiLang' && typeof languages === 'string' && languages.trim()) {
+      reqMap.multiLanConfig = { languages: languages.trim() };
+    }
+
+    // Type=Advanced 时，用 AdvancedConfig 拿到按行/按段/表格等结构化输出，再用它拼文本
+    if (ocrType === 'Advanced') {
+      reqMap.advancedConfig = {
+        outputRow: !!outputRow,
+        outputParagraph: !!outputParagraph,
+        outputTable: !!outputTable
+      };
+    }
+
+    // Type=Table 时，表格专属配置
+    if (ocrType === 'Table') {
+      reqMap.tableConfig = {
+        outputTableExcel: false,
+        outputTableHtml: false
+      };
+    }
+
+    const req = new RecognizeAllTextRequest(reqMap);
 
     const resp = await client.recognizeAllTextWithOptions(req, runtime);
     const data = resp?.body?.data ?? resp?.Body?.Data ?? resp?.body?.Data ?? resp?.Body?.data;
 
+    const rowText = toRowText(data);
+    const paragraphText = toParagraphText(data);
+    const plainText = toPlainText(data);
+
+    // 优先用用户显式开启的结构化输出拼装文本
+    let preferredText = plainText;
+    if (ocrType === 'Advanced' && outputParagraph && paragraphText) preferredText = paragraphText;
+    else if (ocrType === 'Advanced' && outputRow && rowText) preferredText = rowText;
+
     ctx.body = {
       success: true,
-      text: toPlainText(data),
+      text: preferredText,
       data
     };
   } catch (error) {
