@@ -124,6 +124,7 @@ app.use(jwt({
         { path: '/api/story-relation/add', methods: ['POST'] },
         { path: '/api/story-relation/delete', methods: ['POST'] },
         { path: '/api/upload', methods: ['POST'] },
+        { path: '/api/ocr', methods: ['POST'] },
         { path: '/api/comment_delete', methods: ['POST'] },
         { path: '/api/comment_approve', methods: ['POST'] },
         { path: '/api/works/edit', methods: ['POST'] },
