@@ -28,6 +28,24 @@ export const User = sequelize.define('User', {
     password: {
         type: DataTypes.STRING,
         allowNull: false
+    },
+    // 微信登录字段（需要你在数据库 user 表手动加列）
+    wechatOpenid: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true
+    },
+    wechatUnionid: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    wechatNickname: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    wechatAvatar: {
+        type: DataTypes.STRING,
+        allowNull: true
     }
 }, {
     //指定表名
