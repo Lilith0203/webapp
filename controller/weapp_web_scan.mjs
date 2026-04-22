@@ -7,6 +7,7 @@ import { User } from '../orm.mjs';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'my-secret-key';
 const LOGIN_TTL_SECONDS = 300; // 5分钟
+const WEAPP_INITIAL_PASSWORD = 'lilithu';
 
 function md5(text) {
   return crypto.createHash('md5').update(text).digest('hex');
@@ -156,11 +157,10 @@ async function confirm(ctx) {
 
     let user = await User.findOne({ where: { wechatOpenid: openid } });
     if (!user) {
-      const randomPass = crypto.randomBytes(24).toString('hex');
       const name = `wx_${openid.slice(0, 8)}`;
       user = await User.create({
         name,
-        password: md5(randomPass),
+        password: md5(WEAPP_INITIAL_PASSWORD),
         wechatOpenid: openid
       });
     }

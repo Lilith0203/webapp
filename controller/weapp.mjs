@@ -5,6 +5,7 @@ import https from 'https';
 import { User } from '../orm.mjs';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'my-secret-key';
+const WEAPP_INITIAL_PASSWORD = 'lilithu';
 
 function md5(text) {
   return crypto.createHash('md5').update(text).digest('hex');
@@ -74,11 +75,10 @@ async function weappLogin(ctx) {
 
     if (!user) {
       // 创建占位用户（兼容你现有的 user 表：name/password 必填）
-      const randomPass = crypto.randomBytes(24).toString('hex');
       const name = `wx_${openid.slice(0, 8)}`;
       user = await User.create({
         name,
-        password: md5(randomPass),
+        password: md5(WEAPP_INITIAL_PASSWORD),
         wechatOpenid: openid
       });
     }
