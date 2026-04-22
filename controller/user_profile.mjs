@@ -29,6 +29,12 @@ async function updateProfile(ctx) {
   const newUsername = typeof body.newUsername === 'string' ? body.newUsername.trim() : '';
   const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
 
+  if (!oldPassword) {
+    ctx.status = 400;
+    ctx.body = { success: false, message: '请输入旧密码' };
+    return;
+  }
+
   if (!newUsername && !newPassword) {
     ctx.status = 400;
     ctx.body = { success: false, message: '请填写要修改的内容' };
@@ -54,18 +60,10 @@ async function updateProfile(ctx) {
     return;
   }
 
-  // 只有改密码时才需要校验旧密码
-  if (newPassword) {
-    if (!oldPassword) {
-      ctx.status = 400;
-      ctx.body = { success: false, message: '请输入旧密码' };
-      return;
-    }
-    if (md5(oldPassword) !== user.password) {
-      ctx.status = 400;
-      ctx.body = { success: false, message: '旧密码不正确' };
-      return;
-    }
+  if (md5(oldPassword) !== user.password) {
+    ctx.status = 400;
+    ctx.body = { success: false, message: '旧密码不正确' };
+    return;
   }
 
   if (newUsername && newUsername !== user.name) {
@@ -84,8 +82,8 @@ async function updateProfile(ctx) {
 
   await user.save();
 
-  const token = jwt.sign({ id: user.id, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
-  ctx.body = { success: true, data: { user: user.name, token } };
+  const token = jwt.sign({ id: user.id, name: user.name, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '7d' });
+  ctx.body = { success: true, data: { user: user.name, role: user.role || 'user', token } };
 }
 
 export default {

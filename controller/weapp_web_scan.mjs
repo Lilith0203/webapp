@@ -13,6 +13,19 @@ function md5(text) {
   return crypto.createHash('md5').update(text).digest('hex');
 }
 
+async function pickUniqueUsername(baseName) {
+  const base = (baseName || '').trim();
+  if (!base) return 'wx_user';
+  for (let i = 0; i < 10; i++) {
+    const suffix = i === 0 ? '' : `_${crypto.randomBytes(2).toString('hex')}`;
+    const candidate = `${base}${suffix}`;
+    // eslint-disable-next-line no-await-in-loop
+    const exists = await User.findOne({ where: { name: candidate } });
+    if (!exists) return candidate;
+  }
+  return `${base}_${Date.now()}`;
+}
+
 function httpsGetJson(url) {
   return new Promise((resolve, reject) => {
     https
@@ -100,7 +113,16 @@ async function status(ctx) {
   if (data.status === 'confirmed' && data.token) {
     // 一次性：取到 token 后立刻失效，避免被重复拉取
     await cache.del(cacheKey(loginId));
-    ctx.body = { success: true, data: { status: 'confirmed', token: data.token, redirect: data.redirect } };
+    ctx.body = {
+      success: true,
+      data: {
+        status: 'confirmed',
+        token: data.token,
+        user: data.user,
+        role: data.role,
+        redirect: data.redirect
+      }
+    };
     return;
   }
 
@@ -157,20 +179,21 @@ async function confirm(ctx) {
 
     let user = await User.findOne({ where: { wechatOpenid: openid } });
     if (!user) {
-      const name = `wx_${openid.slice(0, 8)}`;
+      const name = await pickUniqueUsername(`wx_${openid.slice(0, 8)}`);
       user = await User.create({
         name,
         password: md5(WEAPP_INITIAL_PASSWORD),
+        role: 'user',
         wechatOpenid: openid
       });
     }
 
-    const token = jwt.sign({ id: user.id, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user.id, name: user.name, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '7d' });
 
     // 标记为已确认，等待网页轮询取 token
     await cache.set(
       cacheKey(loginId),
-      { ...ticket, status: 'confirmed', token, confirmedAt: Date.now() },
+      { ...ticket, status: 'confirmed', token, user: user.name, role: user.role || 'user', confirmedAt: Date.now() },
       LOGIN_TTL_SECONDS
     );
 

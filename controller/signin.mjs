@@ -34,6 +34,7 @@ async function login(ctx, next) {
             const token = jwt.sign({
                 id: user.id,
                 name: user.name,
+                role: user.role || 'user',
                 },
                 JWT_SECRET,
                 {expiresIn: '7d'}
@@ -43,6 +44,7 @@ async function login(ctx, next) {
                 code: 200,
                 data: {
                     user: user.name,
+                    role: user.role || 'user',
                     token: `${token}`,
                 },
                 message: "成功登录"

@@ -11,6 +11,20 @@ function md5(text) {
   return crypto.createHash('md5').update(text).digest('hex');
 }
 
+async function pickUniqueUsername(baseName) {
+  const base = (baseName || '').trim();
+  if (!base) return 'wx_user';
+  // 最多尝试 10 次避免死循环
+  for (let i = 0; i < 10; i++) {
+    const suffix = i === 0 ? '' : `_${crypto.randomBytes(2).toString('hex')}`;
+    const candidate = `${base}${suffix}`;
+    // eslint-disable-next-line no-await-in-loop
+    const exists = await User.findOne({ where: { name: candidate } });
+    if (!exists) return candidate;
+  }
+  return `${base}_${Date.now()}`;
+}
+
 function httpsGetJson(url) {
   return new Promise((resolve, reject) => {
     https
@@ -75,20 +89,22 @@ async function weappLogin(ctx) {
 
     if (!user) {
       // 创建占位用户（兼容你现有的 user 表：name/password 必填）
-      const name = `wx_${openid.slice(0, 8)}`;
+      const name = await pickUniqueUsername(`wx_${openid.slice(0, 8)}`);
       user = await User.create({
         name,
         password: md5(WEAPP_INITIAL_PASSWORD),
+        role: 'user',
         wechatOpenid: openid
       });
     }
 
-    const token = jwt.sign({ id: user.id, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user.id, name: user.name, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '7d' });
 
     ctx.body = {
       success: true,
       data: {
         user: user.name,
+        role: user.role || 'user',
         token
       }
     };

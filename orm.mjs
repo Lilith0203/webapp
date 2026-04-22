@@ -23,11 +23,18 @@ export const User = sequelize.define('User', {
     },
     name: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: false,
+        unique: true
     },
     password: {
         type: DataTypes.STRING,
         allowNull: false
+    },
+    // 角色：admin / user（需要你在数据库 user 表手动加列）
+    role: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'user'
     },
     // 微信登录字段（需要你在数据库 user 表手动加列）
     wechatOpenid: {
