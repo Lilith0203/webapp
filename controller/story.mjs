@@ -2,6 +2,16 @@ import { Story, StorySet, StorySetRel, StoryRelation } from '../orm.mjs';
 import { Op, Sequelize } from 'sequelize';
 import * as utils from 'utility';
 
+function requireAdmin(ctx, next) {
+    const role = ctx && ctx.state && ctx.state.user && ctx.state.user.role;
+    if (role !== 'admin') {
+        ctx.status = 403;
+        ctx.body = { success: false, message: '无权限：仅管理员可操作' };
+        return;
+    }
+    return next();
+}
+
 // ==================== 剧情合集接口 ====================
 
 // 获取所有剧情合集（树形结构）
@@ -1416,21 +1426,21 @@ export default {
     // 剧情合集接口
     'GET /api/story-sets': getAllStorySets,
     'GET /api/story-sets/:id': getStorySetDetail,
-    'POST /api/story-sets': createStorySet,
-    'PUT /api/story-sets/:id': updateStorySet,
-    'POST /api/story-sets/delete': deleteStorySet,
+    'POST /api/story-sets': [requireAdmin, createStorySet],
+    'PUT /api/story-sets/:id': [requireAdmin, updateStorySet],
+    'POST /api/story-sets/delete': [requireAdmin, deleteStorySet],
     
     // 剧情接口
-    'POST /api/stories': createStory,
-    'PUT /api/stories/:id': updateStory,
-    'POST /api/stories/delete': deleteStory,
+    'POST /api/stories': [requireAdmin, createStory],
+    'PUT /api/stories/:id': [requireAdmin, updateStory],
+    'POST /api/stories/delete': [requireAdmin, deleteStory],
     
     // 关联接口
     'GET /api/stories/:id': getStoryDetail,
-    'POST /api/story-relation/add': addStoryRelation,
+    'POST /api/story-relation/add': [requireAdmin, addStoryRelation],
     'GET /api/story-relation/:storyId': getStoryRelations,
-    'POST /api/story-relation/delete': deleteStoryRelation,
-    'PUT /api/story-relation/:id': updateStoryRelation,
+    'POST /api/story-relation/delete': [requireAdmin, deleteStoryRelation],
+    'PUT /api/story-relation/:id': [requireAdmin, updateStoryRelation],
     'GET /api/stories': searchStories,
     
     // 排序接口

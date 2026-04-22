@@ -67,6 +67,10 @@ export const Articles = sequelize.define('Articles', {
         type: DataTypes.INTEGER,
         allowNull: false,
     },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
     title: {
         type: DataTypes.STRING,
         allowNull: false
@@ -137,6 +141,10 @@ export const Material = sequelize.define('Material', {
         type: DataTypes.INTEGER,
         allowNull: false,
     },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
     name: {
         type: DataTypes.STRING,
         allowNull: false
@@ -203,6 +211,10 @@ export const GridData = sequelize.define('GridData', {
         type: DataTypes.INTEGER,
         allowNull: false,
     },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
     name: {
         type: DataTypes.STRING,
         allowNull: false
@@ -232,6 +244,10 @@ export const Works = sequelize.define('Works', {
         autoIncrement: true,
         type: DataTypes.INTEGER,
         allowNull: false,
+    },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
     },
     name: {
         type: DataTypes.STRING,
@@ -288,6 +304,10 @@ export const WorksSet = sequelize.define('WorksSet', {
         autoIncrement: true,
         type: DataTypes.INTEGER,
         allowNull: false,
+    },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
     },
     name: {
         type: DataTypes.STRING,
@@ -465,6 +485,10 @@ export const Color = sequelize.define('Color', {
         autoIncrement: true,
         type: DataTypes.INTEGER,
         allowNull: false,
+    },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
     },
     category: {
         type: DataTypes.INTEGER,
@@ -665,6 +689,10 @@ export const Plan = sequelize.define('Plan', {
         type: DataTypes.INTEGER,
         allowNull: false,
     },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
     title: {
         type: DataTypes.STRING,  // 标题
         allowNull: false
@@ -711,6 +739,10 @@ export const Guide = sequelize.define('Guide', {
         autoIncrement: true,
         type: DataTypes.INTEGER,
         allowNull: false,
+    },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
     },
     title: {
         type: DataTypes.STRING,  // 标题
