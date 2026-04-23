@@ -8,10 +8,6 @@ function getAuthedUserId(ctx) {
     return typeof id === 'number' || typeof id === 'string' ? parseInt(id) : null;
 }
 
-function isAdmin(ctx) {
-    return (ctx && ctx.state && ctx.state.user && ctx.state.user.role) === 'admin';
-}
-
 function arrayToTree(arr, root) {
     const result = []
     const map = {}
@@ -119,7 +115,7 @@ async function material(ctx, next) {
     
     // 构建查询条件
     let whereCondition = {
-        ...(isAdmin(ctx) ? {} : { userId }),
+        userId,
         isDeleted: 0
     };
     
@@ -195,7 +191,7 @@ async function updateMaterial(ctx, next) {
         const material = await Material.findOne({
             where: {
                 id: id,
-                ...(isAdmin(ctx) ? {} : { userId })
+                userId
             }
         });
         if (!material) {
@@ -209,7 +205,7 @@ async function updateMaterial(ctx, next) {
         await Material.update(updateData, {
             where: {
                 id: id,
-                ...(isAdmin(ctx) ? {} : { userId })
+                userId
             }
         });
         ctx.body = {
@@ -280,7 +276,7 @@ async function deleteMaterial(ctx, next) {
         const material = await Material.findOne({
             where: {
                 id: id,
-                ...(isAdmin(ctx) ? {} : { userId })
+                userId
             }
         });
         if (!material) {
@@ -294,7 +290,7 @@ async function deleteMaterial(ctx, next) {
         await Material.update(updateData, {
             where: {
                 id: id,
-                ...(isAdmin(ctx) ? {} : { userId })
+                userId
             }
         });
         ctx.body = {

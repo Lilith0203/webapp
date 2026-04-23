@@ -121,6 +121,7 @@ app.use(jwt({
         { path: '/api/updateMaterialType', methods: ['POST'] },
         { path: '/api/addMaterialType', methods: ['POST'] },
         { path: '/api/deleteMaterialType', methods: ['POST'] },
+        { path: '/api/material', methods: ['POST'] },
         { path: '/api/updateMaterial', methods: ['POST'] },
         { path: '/api/addMaterial', methods: ['POST'] },
         { path: '/api/deleteMaterial', methods: ['POST'] },

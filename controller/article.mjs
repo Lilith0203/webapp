@@ -11,6 +11,15 @@ function isAdmin(ctx) {
     return (ctx && ctx.state && ctx.state.user && ctx.state.user.role) === 'admin';
 }
 
+function requireAdmin(ctx) {
+    if (!isAdmin(ctx)) {
+        ctx.status = 403;
+        ctx.body = { success: false, message: '无权限：仅管理员可操作文章' };
+        return false;
+    }
+    return true;
+}
+
 //GET /api/article
 async function article(ctx, next) {
     let page = parseInt(ctx.query.page) || 1;
@@ -97,17 +106,13 @@ async function article_update(ctx, next) {
         ctx.body = { success: false, message: '未授权，请登录' };
         return;
     }
+    if (!requireAdmin(ctx)) return;
     const id = parseInt(ctx.request.body.id);
     const updateData = ctx.request.body;
     
     try {
         // 查找文章
-        const article = await Articles.findOne({
-            where: {
-                id,
-                ...(isAdmin(ctx) ? {} : { userId })
-            }
-        });
+        const article = await Articles.findOne({ where: { id } });
         if (!article) {
             ctx.status = 404;
             ctx.body = {
@@ -132,8 +137,7 @@ async function article_update(ctx, next) {
             updatedAt: new Date()
         }, {
             where: {
-                id: id,
-                ...(isAdmin(ctx) ? {} : { userId })
+                id: id
             }
         });
 
@@ -158,6 +162,7 @@ async function article_delete(ctx, next) {
         ctx.body = { success: false, message: '未授权，请登录' };
         return;
     }
+    if (!requireAdmin(ctx)) return;
     const id = parseInt(ctx.request.body.id);
     const updateData = {
         isDeleted: 1
@@ -165,12 +170,7 @@ async function article_delete(ctx, next) {
     
     try {
         // 查找文章
-        const article = await Articles.findOne({
-            where: {
-                id,
-                ...(isAdmin(ctx) ? {} : { userId })
-            }
-        });
+        const article = await Articles.findOne({ where: { id } });
         if (!article) {
             ctx.status = 404;
             ctx.body = {
@@ -183,8 +183,7 @@ async function article_delete(ctx, next) {
         // 更新文章
         await Articles.update(updateData, {
             where: {
-                id: id,
-                ...(isAdmin(ctx) ? {} : { userId })
+                id: id
             }
         });
 
@@ -210,6 +209,7 @@ async function article_add(ctx, next) {
         ctx.body = { success: false, message: '未授权，请登录' };
         return;
     }
+    if (!requireAdmin(ctx)) return;
     const articleData = ctx.request.body;
     
     try {
