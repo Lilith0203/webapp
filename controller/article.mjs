@@ -2,6 +2,15 @@ import * as utils from 'utility';
 import { Articles } from '../orm.mjs';
 import { Op } from 'sequelize';
 
+function getAuthedUserId(ctx) {
+    const id = ctx && ctx.state && ctx.state.user && ctx.state.user.id;
+    return typeof id === 'number' || typeof id === 'string' ? parseInt(id) : null;
+}
+
+function isAdmin(ctx) {
+    return (ctx && ctx.state && ctx.state.user && ctx.state.user.role) === 'admin';
+}
+
 //GET /api/article
 async function article(ctx, next) {
     let page = parseInt(ctx.query.page) || 1;
@@ -82,12 +91,23 @@ async function article_detail(ctx, next) {
 
 //POST /api/article/edit
 async function article_update(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
     const id = parseInt(ctx.request.body.id);
     const updateData = ctx.request.body;
     
     try {
         // 查找文章
-        const article = await Articles.findByPk(id);
+        const article = await Articles.findOne({
+            where: {
+                id,
+                ...(isAdmin(ctx) ? {} : { userId })
+            }
+        });
         if (!article) {
             ctx.status = 404;
             ctx.body = {
@@ -111,7 +131,10 @@ async function article_update(ctx, next) {
             classify: updateData.classify,
             updatedAt: new Date()
         }, {
-            where: { id: id }
+            where: {
+                id: id,
+                ...(isAdmin(ctx) ? {} : { userId })
+            }
         });
 
         ctx.body = {
@@ -129,6 +152,12 @@ async function article_update(ctx, next) {
 }
 
 async function article_delete(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
     const id = parseInt(ctx.request.body.id);
     const updateData = {
         isDeleted: 1
@@ -136,7 +165,12 @@ async function article_delete(ctx, next) {
     
     try {
         // 查找文章
-        const article = await Articles.findByPk(id);
+        const article = await Articles.findOne({
+            where: {
+                id,
+                ...(isAdmin(ctx) ? {} : { userId })
+            }
+        });
         if (!article) {
             ctx.status = 404;
             ctx.body = {
@@ -148,7 +182,10 @@ async function article_delete(ctx, next) {
 
         // 更新文章
         await Articles.update(updateData, {
-            where: { id: id }
+            where: {
+                id: id,
+                ...(isAdmin(ctx) ? {} : { userId })
+            }
         });
 
         ctx.body = {
@@ -167,6 +204,12 @@ async function article_delete(ctx, next) {
 
 //POST /api/articleAdd
 async function article_add(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
     const articleData = ctx.request.body;
     
     try {
@@ -177,6 +220,7 @@ async function article_add(ctx, next) {
 
         // 创建新文章
         const article = await Articles.create({
+            userId,
             title: articleData.title,
             content: articleData.content,
             abbr: articleData.abbr,

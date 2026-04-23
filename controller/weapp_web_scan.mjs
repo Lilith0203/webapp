@@ -4,6 +4,7 @@ import config from 'config';
 import https from 'https';
 import cache from '../util/cache.mjs';
 import { User } from '../orm.mjs';
+import { Sequelize } from 'sequelize';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'my-secret-key';
 const LOGIN_TTL_SECONDS = 300; // 5分钟
@@ -20,7 +21,9 @@ async function pickUniqueUsername(baseName) {
     const suffix = i === 0 ? '' : `_${crypto.randomBytes(2).toString('hex')}`;
     const candidate = `${base}${suffix}`;
     // eslint-disable-next-line no-await-in-loop
-    const exists = await User.findOne({ where: { name: candidate } });
+    const exists = await User.findOne({
+      where: Sequelize.where(Sequelize.fn('BINARY', Sequelize.col('name')), candidate)
+    });
     if (!exists) return candidate;
   }
   return `${base}_${Date.now()}`;

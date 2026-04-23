@@ -1,9 +1,25 @@
 import {GridData} from '../orm.mjs';
 
+function getAuthedUserId(ctx) {
+    const id = ctx && ctx.state && ctx.state.user && ctx.state.user.id;
+    return typeof id === 'number' || typeof id === 'string' ? parseInt(id) : null;
+}
+
+function isAdmin(ctx) {
+    return (ctx && ctx.state && ctx.state.user && ctx.state.user.role) === 'admin';
+}
+
 //GET /api/grid/list
 async function getGridList(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
     let gridlist = await GridData.findAll({
         where: {
+            ...(isAdmin(ctx) ? {} : { userId }),
             isDeleted: 0
         },
         order: [['updatedAt', 'DESC']]
@@ -15,6 +31,12 @@ async function getGridList(ctx, next) {
 
 //POST /api/grid/save
 async function saveGrid(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
     let name = ctx.request.body.name || 'temp';
     let size = parseInt(ctx.request.body.size);
 
@@ -26,7 +48,12 @@ async function saveGrid(ctx, next) {
     if(ctx.request.body.id) {
         id = parseInt(ctx.request.body.id);
         try {
-            const grid = await GridData.findByPk(id);
+            const grid = await GridData.findOne({
+                where: {
+                    id,
+                    ...(isAdmin(ctx) ? {} : { userId })
+                }
+            });
             if (!grid) {
                 ctx.status = 404;
                 ctx.body = {
@@ -40,7 +67,10 @@ async function saveGrid(ctx, next) {
                     cells: cells,
                     updatedAt: new Date()
                 }, {
-                    where: { id: id }
+                    where: {
+                        id: id,
+                        ...(isAdmin(ctx) ? {} : { userId })
+                    }
                 });
             }
         } catch (e) {
@@ -53,6 +83,7 @@ async function saveGrid(ctx, next) {
         }
     } else {
         const grid =await GridData.create({
+            userId,
             name: name,
             size: size,
             cells: cells
@@ -67,10 +98,17 @@ async function saveGrid(ctx, next) {
 
 //GET /api/grid/:id
 async function getGrid(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
     let id = parseInt(ctx.params.id);
     let grid = await GridData.findOne({
         where: {
-            id: id
+            id: id,
+            ...(isAdmin(ctx) ? {} : { userId })
         }
     });
     if (grid) {
@@ -88,8 +126,14 @@ async function getGrid(ctx, next) {
 
 //POST /api/grid/delete
 async function deleteGrid(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
     let id = parseInt(ctx.request.body.id);
-    await GridData.update({isDeleted: 1}, {where: {id: id}});
+    await GridData.update({isDeleted: 1}, {where: {id: id, ...(isAdmin(ctx) ? {} : { userId })}});
     ctx.body = {
         success: true
     }

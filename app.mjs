@@ -101,6 +101,12 @@ app.use(jwt({
     const protectedRoutes = [
         { path: '/api/config/set', methods: ['POST'] },
         { path: '/api/user/profile/update', methods: ['POST'] },
+        // 计划：仅允许登录用户访问自己的计划
+        { path: '/api/plans', methods: ['GET'] },
+        { path: '/api/plan/', methods: ['GET'] },
+        { path: '/api/plan/edit', methods: ['POST'] },
+        { path: '/api/planAdd', methods: ['POST'] },
+        { path: '/api/plan/delete', methods: ['POST'] },
         { path: '/api/articleAdd', methods: ['POST'] },
         { path: '/api/article/edit', methods: ['POST'] },
         { path: '/api/article/delete', methods: ['POST'] },

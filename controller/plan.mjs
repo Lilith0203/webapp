@@ -2,14 +2,26 @@ import * as utils from 'utility';
 import { Plan } from '../orm.mjs';
 import { Op } from 'sequelize';
 
+function getAuthedUserId(ctx) {
+    const id = ctx && ctx.state && ctx.state.user && ctx.state.user.id;
+    return typeof id === 'number' || typeof id === 'string' ? parseInt(id) : null;
+}
+
 // GET /api/plan
 async function plan(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
     let page = parseInt(ctx.query.page) || 1;
     let size = parseInt(ctx.query.size) || 10;
     let search = ctx.query.search ? ctx.query.search : '';
     
     let {count, rows} = await Plan.findAndCountAll({
         where: {
+            userId,
             isDeleted: 0,
             ...(search ? {
                 [Op.or]: [
@@ -54,10 +66,17 @@ async function plan(ctx, next) {
 
 // GET /api/plan/:id
 async function plan_detail(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
     let id = parseInt(ctx.params.id);
     let plan = await Plan.findOne({
         where: {
             id: id,
+            userId,
             isDeleted: 0
         }
     });
@@ -84,6 +103,12 @@ async function plan_detail(ctx, next) {
 
 // POST /api/plan/edit
 async function plan_update(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
     const id = parseInt(ctx.request.body.id);
     const updateData = ctx.request.body;
     
@@ -92,6 +117,7 @@ async function plan_update(ctx, next) {
         const plan = await Plan.findOne({
             where: {
                 id: id,
+                userId,
                 isDeleted: 0
             }
         });
@@ -135,6 +161,12 @@ async function plan_update(ctx, next) {
 
 // POST /api/plan/delete
 async function plan_delete(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
     const id = parseInt(ctx.request.body.id);
     
     try {
@@ -142,6 +174,7 @@ async function plan_delete(ctx, next) {
         const plan = await Plan.findOne({
             where: {
                 id: id,
+                userId,
                 isDeleted: 0
             }
         });
@@ -178,11 +211,18 @@ async function plan_delete(ctx, next) {
 
 // POST /api/planAdd
 async function plan_add(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
     const planData = ctx.request.body;
     
     try {
         // 创建新计划
         const plan = await Plan.create({
+            userId,
             title: planData.title,
             description: planData.description,
             status: planData.status,

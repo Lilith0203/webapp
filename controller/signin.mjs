@@ -1,6 +1,7 @@
 import { User } from '../orm.mjs'
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { Sequelize } from 'sequelize';
 
 const JWT_SECRET = process.env.JWT_SECRET || "my-secret-key"
 
@@ -12,9 +13,7 @@ async function login(ctx, next) {
     try {
         //调用Model.findOne() 查询一行记录
         let user = await User.findOne({
-            where: {
-                name: name
-            }
+            where: Sequelize.where(Sequelize.fn('BINARY', Sequelize.col('name')), name)
         });
 
         if (!user) {

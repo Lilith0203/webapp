@@ -1,6 +1,15 @@
 import { Guide, sequelize } from '../orm.mjs';
 import { Op } from 'sequelize';
 
+function getAuthedUserId(ctx) {
+    const id = ctx && ctx.state && ctx.state.user && ctx.state.user.id;
+    return typeof id === 'number' || typeof id === 'string' ? parseInt(id) : null;
+}
+
+function isAdmin(ctx) {
+    return (ctx && ctx.state && ctx.state.user && ctx.state.user.role) === 'admin';
+}
+
 // 获取攻略列表
 export async function getGuides(ctx) {
     try {
@@ -122,6 +131,12 @@ export async function getGuideDetail(ctx) {
 // 创建攻略
 export const createGuide = async (ctx) => {
     try {
+        const userId = getAuthedUserId(ctx)
+        if (!userId) {
+            ctx.status = 401
+            ctx.body = { success: false, message: '未授权，请登录' }
+            return
+        }
         const { title, content, category, tags } = ctx.request.body
         
         // 验证必填字段
@@ -135,6 +150,7 @@ export const createGuide = async (ctx) => {
         const tagsString = Array.isArray(tags) ? tags.join(',') : tags || ''
         
         const guide = await Guide.create({
+            userId,
             title,
             content,
             category,
@@ -157,10 +173,22 @@ export const createGuide = async (ctx) => {
 // 更新攻略
 export const updateGuide = async (ctx) => {
     try {
+        const userId = getAuthedUserId(ctx)
+        if (!userId) {
+            ctx.status = 401
+            ctx.body = { success: false, message: '未授权，请登录' }
+            return
+        }
         const { id } = ctx.params
         const { title, content, category, tags } = ctx.request.body
         
-        const guide = await Guide.findOne({ where: { id, isDeleted: 0 } })
+        const guide = await Guide.findOne({ 
+            where: { 
+                id, 
+                ...(isAdmin(ctx) ? {} : { userId }),
+                isDeleted: 0 
+            } 
+        })
         if (!guide) {
             ctx.status = 404
             ctx.body = { error: '攻略不存在' }
@@ -192,11 +220,18 @@ export const updateGuide = async (ctx) => {
 // 删除攻略
 export async function deleteGuide(ctx) {
     try {
+        const userId = getAuthedUserId(ctx)
+        if (!userId) {
+            ctx.status = 401
+            ctx.body = { success: false, message: '未授权，请登录' }
+            return
+        }
         const { id } = ctx.request.body;
         
         const guide = await Guide.findOne({
             where: {
                 id: id,
+                ...(isAdmin(ctx) ? {} : { userId }),
                 isDeleted: 0
             }
         });

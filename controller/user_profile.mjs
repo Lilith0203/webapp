@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { User } from '../orm.mjs';
+import { Sequelize } from 'sequelize';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'my-secret-key';
 
@@ -67,7 +68,9 @@ async function updateProfile(ctx) {
   }
 
   if (newUsername && newUsername !== user.name) {
-    const exists = await User.findOne({ where: { name: newUsername } });
+    const exists = await User.findOne({
+      where: Sequelize.where(Sequelize.fn('BINARY', Sequelize.col('name')), newUsername)
+    });
     if (exists) {
       ctx.status = 400;
       ctx.body = { success: false, message: '用户名已存在' };

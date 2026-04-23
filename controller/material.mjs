@@ -3,6 +3,15 @@ import { Material } from '../orm.mjs'
 import { cleanOssUrl } from '../oss.mjs';
 import { Op } from 'sequelize';
 
+function getAuthedUserId(ctx) {
+    const id = ctx && ctx.state && ctx.state.user && ctx.state.user.id;
+    return typeof id === 'number' || typeof id === 'string' ? parseInt(id) : null;
+}
+
+function isAdmin(ctx) {
+    return (ctx && ctx.state && ctx.state.user && ctx.state.user.role) === 'admin';
+}
+
 function arrayToTree(arr, root) {
     const result = []
     const map = {}
@@ -99,11 +108,18 @@ async function updateMaterialType(ctx, next) {
 
 //POST /api/material
 async function material(ctx, next) {
+    const userId = getAuthedUserId(ctx)
+    if (!userId) {
+        ctx.status = 401
+        ctx.body = { success: false, message: '未授权，请登录' }
+        return
+    }
     // 获取请求体中的参数
     const { ids, showAll, sortBy, sortOrder } = ctx.request.body;
     
     // 构建查询条件
     let whereCondition = {
+        ...(isAdmin(ctx) ? {} : { userId }),
         isDeleted: 0
     };
     
@@ -151,6 +167,12 @@ async function material(ctx, next) {
 
 //POST /api/updateMaterial
 async function updateMaterial(ctx, next) {
+    const userId = getAuthedUserId(ctx)
+    if (!userId) {
+        ctx.status = 401
+        ctx.body = { success: false, message: '未授权，请登录' }
+        return
+    }
     const id = ctx.request.body.id;
     const cleanedUrl = ctx.request.body.pic ? cleanOssUrl(ctx.request.body.pic) : '';
     const updateData = {
@@ -170,7 +192,12 @@ async function updateMaterial(ctx, next) {
 
     try {
         //查找并更新material
-        const material = await Material.findByPk(id);
+        const material = await Material.findOne({
+            where: {
+                id: id,
+                ...(isAdmin(ctx) ? {} : { userId })
+            }
+        });
         if (!material) {
             ctx.body = {
                 success: false,
@@ -181,7 +208,8 @@ async function updateMaterial(ctx, next) {
 
         await Material.update(updateData, {
             where: {
-                id: id
+                id: id,
+                ...(isAdmin(ctx) ? {} : { userId })
             }
         });
         ctx.body = {
@@ -197,7 +225,14 @@ async function updateMaterial(ctx, next) {
 
 //POST /api/addMaterial
 async function addMaterial(ctx, next) {
+    const userId = getAuthedUserId(ctx)
+    if (!userId) {
+        ctx.status = 401
+        ctx.body = { success: false, message: '未授权，请登录' }
+        return
+    }
     const newData = {
+        userId,
         name: ctx.request.body.name,
         type: parseInt(ctx.request.body.type),
         substance: ctx.request.body.substance,
@@ -229,6 +264,12 @@ async function addMaterial(ctx, next) {
 
 //POST /api/deleteMaterial
 async function deleteMaterial(ctx, next) {
+    const userId = getAuthedUserId(ctx)
+    if (!userId) {
+        ctx.status = 401
+        ctx.body = { success: false, message: '未授权，请登录' }
+        return
+    }
     const id = ctx.request.body.id;
     const updateData = {
         isDeleted: 1
@@ -236,7 +277,12 @@ async function deleteMaterial(ctx, next) {
 
     try {
         //查找并更新material
-        const material = await Material.findByPk(id);
+        const material = await Material.findOne({
+            where: {
+                id: id,
+                ...(isAdmin(ctx) ? {} : { userId })
+            }
+        });
         if (!material) {
             ctx.body = {
                 success: false,
@@ -247,7 +293,8 @@ async function deleteMaterial(ctx, next) {
 
         await Material.update(updateData, {
             where: {
-                id: id
+                id: id,
+                ...(isAdmin(ctx) ? {} : { userId })
             }
         });
         ctx.body = {

@@ -1,8 +1,23 @@
 import { Color } from '../orm.mjs'
 import { Op } from 'sequelize'
 
+function getAuthedUserId(ctx) {
+    const id = ctx && ctx.state && ctx.state.user && ctx.state.user.id;
+    return typeof id === 'number' || typeof id === 'string' ? parseInt(id) : null;
+}
+
+function isAdmin(ctx) {
+    return (ctx && ctx.state && ctx.state.user && ctx.state.user.role) === 'admin';
+}
+
 // POST /api/color/add - 添加颜色
 async function addColor(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
     const { category, set, name, code } = ctx.request.body;
 
     // 验证输入
@@ -28,6 +43,7 @@ async function addColor(ctx, next) {
     try {
         // 创建新颜色
         const newColor = await Color.create({
+            userId,
             category,
             set,
             name,
@@ -111,6 +127,12 @@ async function getColors(ctx, next) {
 
 // POST /api/color/delete - 删除颜色
 async function deleteColor(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
     const { id } = ctx.request.body;
 
     if (!id) {
@@ -127,6 +149,7 @@ async function deleteColor(ctx, next) {
         const color = await Color.findOne({
             where: {
                 id: id,
+                ...(isAdmin(ctx) ? {} : { userId }),
                 isDeleted: 0
             }
         });
@@ -148,7 +171,8 @@ async function deleteColor(ctx, next) {
             },
             {
                 where: {
-                    id: id
+                    id: id,
+                    ...(isAdmin(ctx) ? {} : { userId })
                 }
             }
         );
@@ -169,6 +193,12 @@ async function deleteColor(ctx, next) {
 
 // POST /api/color/edit - 编辑颜色
 async function editColor(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
     const { id, set, name, code } = ctx.request.body;
 
     // 验证输入
@@ -196,6 +226,7 @@ async function editColor(ctx, next) {
         const existingColor = await Color.findOne({
             where: {
                 id: id,
+                ...(isAdmin(ctx) ? {} : { userId }),
                 isDeleted: 0
             }
         });
@@ -219,7 +250,8 @@ async function editColor(ctx, next) {
             },
             {
                 where: {
-                    id: id
+                    id: id,
+                    ...(isAdmin(ctx) ? {} : { userId })
                 }
             }
         );
