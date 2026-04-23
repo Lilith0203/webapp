@@ -10,6 +10,15 @@ function isAdmin(ctx) {
     return (ctx && ctx.state && ctx.state.user && ctx.state.user.role) === 'admin';
 }
 
+function requireAdmin(ctx) {
+    if (!isAdmin(ctx)) {
+        ctx.status = 403;
+        ctx.body = { success: false, message: '无权限：仅管理员可操作' };
+        return false;
+    }
+    return true;
+}
+
 // 获取攻略列表
 export async function getGuides(ctx) {
     try {
@@ -137,6 +146,7 @@ export const createGuide = async (ctx) => {
             ctx.body = { success: false, message: '未授权，请登录' }
             return
         }
+        if (!requireAdmin(ctx)) return
         const { title, content, category, tags } = ctx.request.body
         
         // 验证必填字段
@@ -179,13 +189,13 @@ export const updateGuide = async (ctx) => {
             ctx.body = { success: false, message: '未授权，请登录' }
             return
         }
+        if (!requireAdmin(ctx)) return
         const { id } = ctx.params
         const { title, content, category, tags } = ctx.request.body
         
         const guide = await Guide.findOne({ 
             where: { 
                 id, 
-                ...(isAdmin(ctx) ? {} : { userId }),
                 isDeleted: 0 
             } 
         })
@@ -226,12 +236,12 @@ export async function deleteGuide(ctx) {
             ctx.body = { success: false, message: '未授权，请登录' }
             return
         }
+        if (!requireAdmin(ctx)) return
         const { id } = ctx.request.body;
         
         const guide = await Guide.findOne({
             where: {
                 id: id,
-                ...(isAdmin(ctx) ? {} : { userId }),
                 isDeleted: 0
             }
         });

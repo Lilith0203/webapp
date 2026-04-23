@@ -9,6 +9,7 @@ import {promises as fs} from 'fs';
 import { bodyParser } from '@koa/bodyparser';
 import cors from '@koa/cors';
 import multer from '@koa/multer';
+import jsonwebtoken from 'jsonwebtoken';
 
 import controller from './controller.mjs';
 //import templateEngine from './view.mjs';
@@ -93,6 +94,30 @@ app.use(async (ctx, next) => {
 });
 
 // 添加 JWT 中间件，排除不需要验证的路径和方法
+// 对部分接口启用“可选登录”：未登录也可访问，但如果带 token 会解析到 ctx.state.user
+app.use(async (ctx, next) => {
+  const isOptionalAuthGetGrid =
+    ctx.method === 'GET' &&
+    (ctx.path === '/api/grid/list' || ctx.path.startsWith('/api/grid/'));
+
+  if (isOptionalAuthGetGrid) {
+    const header = (ctx.headers && (ctx.headers.authorization || ctx.headers.Authorization)) || '';
+    const token = typeof header === 'string' && header.startsWith('Bearer ')
+      ? header.slice('Bearer '.length).trim()
+      : '';
+    if (token) {
+      try {
+        const decoded = jsonwebtoken.verify(token, JWT_SECRET);
+        ctx.state = ctx.state || {};
+        ctx.state.user = decoded;
+      } catch (e) {
+        // token 无效/过期：按未登录处理，不抛 401
+      }
+    }
+  }
+  await next();
+});
+
 app.use(jwt({ 
   secret: JWT_SECRET 
 }).unless({ 

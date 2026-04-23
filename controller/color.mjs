@@ -10,6 +10,15 @@ function isAdmin(ctx) {
     return (ctx && ctx.state && ctx.state.user && ctx.state.user.role) === 'admin';
 }
 
+function requireAdmin(ctx) {
+    if (!isAdmin(ctx)) {
+        ctx.status = 403;
+        ctx.body = { success: false, message: '无权限：仅管理员可操作' };
+        return false;
+    }
+    return true;
+}
+
 // POST /api/color/add - 添加颜色
 async function addColor(ctx, next) {
     const userId = getAuthedUserId(ctx);
@@ -18,6 +27,7 @@ async function addColor(ctx, next) {
         ctx.body = { success: false, message: '未授权，请登录' };
         return;
     }
+    if (!requireAdmin(ctx)) return;
     const { category, set, name, code } = ctx.request.body;
 
     // 验证输入
@@ -133,6 +143,7 @@ async function deleteColor(ctx, next) {
         ctx.body = { success: false, message: '未授权，请登录' };
         return;
     }
+    if (!requireAdmin(ctx)) return;
     const { id } = ctx.request.body;
 
     if (!id) {
@@ -199,6 +210,7 @@ async function editColor(ctx, next) {
         ctx.body = { success: false, message: '未授权，请登录' };
         return;
     }
+    if (!requireAdmin(ctx)) return;
     const { id, set, name, code } = ctx.request.body;
 
     // 验证输入
@@ -288,6 +300,13 @@ async function editColor(ctx, next) {
 
 // POST /api/color/update-set - 更新颜色合集
 async function updateColorSet(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
+    if (!requireAdmin(ctx)) return;
     const { category, oldSet, colors } = ctx.request.body;
 
     // 验证输入
@@ -379,6 +398,7 @@ async function updateColorSet(ctx, next) {
             } else {
                 // 创建新颜色
                 await Color.create({
+                    userId,
                     category,
                     set: color.set,
                     name: color.name,
@@ -425,6 +445,13 @@ async function updateColorSet(ctx, next) {
 
 // POST /api/color/delete-set - 删除颜色合集
 async function deleteColorSet(ctx, next) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return;
+    }
+    if (!requireAdmin(ctx)) return;
     const { category, set } = ctx.request.body;
 
     // 验证输入

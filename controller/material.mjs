@@ -104,36 +104,45 @@ async function updateMaterialType(ctx, next) {
 
 //POST /api/material
 async function material(ctx, next) {
-    const userId = getAuthedUserId(ctx)
-    if (!userId) {
-        ctx.status = 401
-        ctx.body = { success: false, message: '未授权，请登录' }
-        return
-    }
     // 获取请求体中的参数
     const { ids, showAll, sortBy, sortOrder } = ctx.request.body;
     
     // 构建查询条件
-    let whereCondition = {
-        userId,
-        isDeleted: 0
-    };
+    // 当通过 ids 批量查询材料（如作品详情展示）时：允许未登录访问，并且不按 userId 过滤
+    // 仅用于“展示材料信息”；材料详情页仍会按 userId 过滤/鉴权。
+    const isIdsQuery = ids && Array.isArray(ids) && ids.length > 0
+
+    const userId = getAuthedUserId(ctx)
+    if (!isIdsQuery && !userId) {
+        ctx.status = 401
+        ctx.body = { success: false, message: '未授权，请登录' }
+        return
+    }
+
+    let whereCondition = isIdsQuery
+      ? { isDeleted: 0 }
+      : { userId, isDeleted: 0 };
     
     // 如果提供了 ids 数组，添加到查询条件中
-    if (ids && Array.isArray(ids) && ids.length > 0) {
+    if (isIdsQuery) {
         whereCondition.id = {
             [Op.in]: ids
         };
     }
     
-    // 默认只返回库存不为 0 的材料，除非 showAll 为 true 或者指定了 ids
+    // 默认隐藏“明确缺货”的材料（stock 为 '0' 或 '无'），但保留空值/未知库存
+    // 除非 showAll 为 true 或者指定了 ids
     if (!showAll && !(ids && ids.length > 0)) {
         whereCondition.stock = {
-            [Op.and]: [
-                { [Op.ne]: '0' },
-                { [Op.ne]: '无' },
-                { [Op.ne]: '' },
-                { [Op.not]: null }
+            [Op.or]: [
+                { [Op.is]: null },
+                { [Op.eq]: '' },
+                {
+                    [Op.and]: [
+                        { [Op.ne]: '0' },
+                        { [Op.ne]: '无' }
+                    ]
+                }
             ]
         };
     }
