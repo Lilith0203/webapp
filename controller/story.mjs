@@ -148,57 +148,48 @@ async function getStorySetDetail(ctx, next) {
                 isDeleted: 0
             };
             
-            // 如果有关键词，添加标题、内容和合集名称搜索条件
-            if (keyword) {
-                whereCondition[Op.or] = [
-                    {
-                        title: {
-                            [Op.like]: `%${keyword}%`
-                        }
-                    },
-                    {
-                        content: {
-                            [Op.like]: `%${keyword}%`
-                        }
-                    },
-                    {
-                        detail: {
-                            [Op.like]: `%${keyword}%`
-                        }
-                    }
-                ];
+            // 如果有关键词：
+            // - 不含空格：沿用原逻辑（单关键词 OR）
+            // - 含空格：按空格拆分为多个词，要求“每个词都命中”（AND），每个词内部仍是 OR
+            const keywordTrimmed = typeof keyword === 'string' ? keyword.trim() : '';
+            const terms = keywordTrimmed ? keywordTrimmed.split(/\s+/).filter(Boolean) : [];
+            if (terms.length > 0) {
+                // 单词情况下直接生成一个 termClause；多词情况下用 AND 组合
+                const andClauses = [];
+                for (const term of terms) {
+                    const termOr = [
+                        { title: { [Op.like]: `%${term}%` } },
+                        { content: { [Op.like]: `%${term}%` } },
+                        { detail: { [Op.like]: `%${term}%` } }
+                    ];
 
-                // 获取包含关键词的合集ID
-                const matchingSets = await StorySet.findAll({
-                    where: {
-                        name: {
-                            [Op.like]: `%${keyword}%`
-                        },
-                        isDeleted: 0
-                    }
-                });
-                
-                // 如果找到匹配的合集，将其ID加入到搜索条件中
-                if (matchingSets.length > 0) {
-                    const matchingSetIds = matchingSets.map(set => set.id);
-                    const matchingRelations = await StorySetRel.findAll({
+                    // 合集名称命中：把该合集下的剧情ID并入 OR 条件
+                    const matchingSets = await StorySet.findAll({
                         where: {
-                            setId: {
-                                [Op.in]: matchingSetIds
-                            },
+                            name: { [Op.like]: `%${term}%` },
                             isDeleted: 0
                         }
                     });
-                    
-                    if (matchingRelations.length > 0) {
-                        const matchingStoryIds = matchingRelations.map(rel => rel.storyId);
-                        whereCondition[Op.or].push({
-                            id: {
-                                [Op.in]: matchingStoryIds
-                            }
+                    if (matchingSets && matchingSets.length > 0) {
+                        const matchingSetIds = matchingSets.map(set => set.id);
+                        const matchingRelations = await StorySetRel.findAll({
+                            where: {
+                                setId: { [Op.in]: matchingSetIds },
+                                isDeleted: 0
+                            },
+                            attributes: ['storyId']
                         });
+                        if (matchingRelations && matchingRelations.length > 0) {
+                            const matchingStoryIds = matchingRelations.map(rel => rel.storyId);
+                            termOr.push({ id: { [Op.in]: matchingStoryIds } });
+                        }
                     }
+
+                    andClauses.push({ [Op.or]: termOr });
                 }
+
+                // AND: 每个词都必须匹配（每个词内部 OR）
+                whereCondition[Op.and] = andClauses;
             }
             
             allStories = await Story.findAll({
