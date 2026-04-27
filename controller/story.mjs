@@ -168,14 +168,17 @@ async function getStorySetDetail(ctx, next) {
             }
 
             const offset = (page - 1) * size;
+            const dir = sortDirection === 'ASC' ? 'ASC' : 'DESC';
             const { count, rows } = await Story.findAndCountAll({
                 where: whereCondition,
                 attributes: ['id', 'title', 'content', 'pictures', 'link', 'onlineAt', 'isRecommended', 'recReasons', 'createdAt', 'updatedAt'],
                 limit: size,
                 offset,
                 order: [
-                    ['onlineAt', sortDirection],
-                    ['title', sortDirection],
+                    // onlineAt 为空时排到最后：与详情页“上一篇/下一篇”保持一致
+                    [Sequelize.literal('onlineAt IS NULL'), 'ASC'],
+                    ['onlineAt', dir],
+                    ['title', dir],
                     ['id', 'DESC']
                 ]
             });
@@ -1239,6 +1242,8 @@ async function getStoryOrder(ctx, next) {
       allSetIds = allSetIds.concat(childSets.map(child => child.id));
     }
     
+    const dir = sortDirection === 'ASC' ? 'ASC' : 'DESC';
+
     // 获取所有相关合集中的剧情关联
     const relations = await StorySetRel.findAll({
       where: {
@@ -1247,6 +1252,7 @@ async function getStoryOrder(ctx, next) {
         },
         isDeleted: 0
       },
+      attributes: ['setId', 'storyId', 'sort'],
       order: [
         ['sort', 'ASC']
       ]
@@ -1254,64 +1260,35 @@ async function getStoryOrder(ctx, next) {
     
     const storyIds = [...new Set(relations.map(rel => rel.storyId))]; // 使用Set去重
     
-    // 获取所有剧情
+    // 获取所有剧情：使用与列表页完全一致的数据库排序
     let allStories = [];
     if (storyIds.length > 0) {
-      allStories = await Story.findAll({
+      const rows = await Story.findAll({
         where: {
-          id: {
-            [Op.in]: storyIds
-          },
+          id: { [Op.in]: storyIds },
           isDeleted: 0
-        }
+        },
+        attributes: ['id', 'title', 'onlineAt'],
+        order: [
+          [Sequelize.literal('onlineAt IS NULL'), 'ASC'],
+          ['onlineAt', dir],
+          ['title', dir],
+          ['id', 'DESC']
+        ]
       });
-      
-             // 处理剧情数据，使用和getStorySetDetail完全一样的逻辑
-       allStories = allStories.map(story => {
-         const storyData = story.get({ plain: true });
-         
-         // 格式化日期
-         storyData.createdAt = utils.YYYYMMDDHHmmss(storyData.createdAt);
-         storyData.updatedAt = utils.YYYYMMDDHHmmss(storyData.updatedAt);
-         if (storyData.onlineAt) {
-           storyData.onlineAt = utils.YYYYMMDDHHmmss(storyData.onlineAt);
-         }
-         
-         // 添加排序信息（使用当前合集中的排序，如果存在）
-         const currentSetRelation = relations.find(rel => rel.storyId === storyData.id && rel.setId === parseInt(setId));
-         storyData.sort = currentSetRelation ? currentSetRelation.sort : 0;
-         
-         // 移除detail字段，排序信息不需要返回详细内容
-         delete storyData.detail;
-         
-         return storyData;
-       });
-      
-      // 使用和getStorySetDetail完全一样的排序逻辑，但根据sortDirection调整
-      allStories.sort((a, b) => {
-        // 首先按时间排序
-        if (a.onlineAt && b.onlineAt) {
-          const timeComparison = sortDirection === 'ASC' 
-            ? a.onlineAt.localeCompare(b.onlineAt, 'zh-CN') 
-            : b.onlineAt.localeCompare(a.onlineAt, 'zh-CN');
-          
-          // 如果时间不同，按时间排序
-          if (timeComparison !== 0) {
-            return timeComparison;
-          }
-        } else if (!a.onlineAt && !b.onlineAt) {
-          // 如果都没有时间，继续按名字排序
-        } else if (!a.onlineAt) {
-          return sortDirection === 'ASC' ? 1 : -1;
-        } else if (!b.onlineAt) {
-          return sortDirection === 'ASC' ? -1 : 1;
+
+      // 给 prev/next 带上 sort 字段（用于展示 position/调试），但不参与排序
+      const sortByStoryId = new Map();
+      for (const rel of relations) {
+        if (rel.setId === parseInt(setId)) {
+          sortByStoryId.set(rel.storyId, rel.sort);
         }
-        
-        // 时间相同或都没有时间时，按名字排序
-        // 倒序时名字也按倒序排列
-        return sortDirection === 'ASC' 
-          ? a.title.localeCompare(b.title, 'zh-CN')
-          : b.title.localeCompare(a.title, 'zh-CN');
+      }
+
+      allStories = rows.map(story => {
+        const s = story.get({ plain: true });
+        if (s.onlineAt) s.onlineAt = utils.YYYYMMDDHHmmss(s.onlineAt);
+        return { ...s, sort: sortByStoryId.get(s.id) || 0 };
       });
     }
     
