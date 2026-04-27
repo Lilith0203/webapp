@@ -130,152 +130,101 @@ async function getStorySetDetail(ctx, next) {
                 },
                 isDeleted: 0
             },
-            order: [
-                ['sort', 'ASC']
-            ]
+            attributes: ['id', 'setId', 'storyId', 'sort'],
+            order: [['sort', 'ASC']]
         });
         
         const storyIds = [...new Set(relations.map(rel => rel.storyId))]; // 使用Set去重
         
-        // 获取所有剧情
+        // 获取所有剧情（尽量在数据库侧分页/排序，避免全量取回再 slice）
         let allStories = [];
         if (storyIds.length > 0) {
             // 添加标题和内容搜索条件
             const whereCondition = {
-                id: {
-                    [Op.in]: storyIds
-                },
+                id: { [Op.in]: storyIds },
                 isDeleted: 0
             };
             
-            // 如果有关键词：
-            // - 不含空格：沿用原逻辑（单关键词 OR）
-            // - 含空格：按空格拆分为多个词，要求“每个词都命中”（AND），每个词内部仍是 OR
+            // 关键词搜索：
+            // - 多词：AND(OR(...))；单词：OR(...)
+            // - “合集名命中”不再做额外反查（会触发多次查询且很慢）；只匹配剧情字段本身
             const keywordTrimmed = typeof keyword === 'string' ? keyword.trim() : '';
             const terms = keywordTrimmed ? keywordTrimmed.split(/\s+/).filter(Boolean) : [];
-            if (terms.length > 0) {
-                // 单词情况下直接生成一个 termClause；多词情况下用 AND 组合
-                const andClauses = [];
-                for (const term of terms) {
-                    const termOr = [
+            if (terms.length === 1) {
+                const term = terms[0];
+                whereCondition[Op.or] = [
+                    { title: { [Op.like]: `%${term}%` } },
+                    { content: { [Op.like]: `%${term}%` } },
+                    { detail: { [Op.like]: `%${term}%` } }
+                ];
+            } else if (terms.length > 1) {
+                whereCondition[Op.and] = terms.map(term => ({
+                    [Op.or]: [
                         { title: { [Op.like]: `%${term}%` } },
                         { content: { [Op.like]: `%${term}%` } },
                         { detail: { [Op.like]: `%${term}%` } }
-                    ];
-
-                    // 合集名称命中：把该合集下的剧情ID并入 OR 条件
-                    const matchingSets = await StorySet.findAll({
-                        where: {
-                            name: { [Op.like]: `%${term}%` },
-                            isDeleted: 0
-                        }
-                    });
-                    if (matchingSets && matchingSets.length > 0) {
-                        const matchingSetIds = matchingSets.map(set => set.id);
-                        const matchingRelations = await StorySetRel.findAll({
-                            where: {
-                                setId: { [Op.in]: matchingSetIds },
-                                isDeleted: 0
-                            },
-                            attributes: ['storyId']
-                        });
-                        if (matchingRelations && matchingRelations.length > 0) {
-                            const matchingStoryIds = matchingRelations.map(rel => rel.storyId);
-                            termOr.push({ id: { [Op.in]: matchingStoryIds } });
-                        }
-                    }
-
-                    andClauses.push({ [Op.or]: termOr });
-                }
-
-                // AND: 每个词都必须匹配（每个词内部 OR）
-                whereCondition[Op.and] = andClauses;
+                    ]
+                }));
             }
-            
-            allStories = await Story.findAll({
-                where: whereCondition
+
+            const offset = (page - 1) * size;
+            const { count, rows } = await Story.findAndCountAll({
+                where: whereCondition,
+                attributes: ['id', 'title', 'content', 'pictures', 'link', 'onlineAt', 'isRecommended', 'recReasons', 'createdAt', 'updatedAt'],
+                limit: size,
+                offset,
+                order: [
+                    ['onlineAt', sortDirection],
+                    ['title', sortDirection],
+                    ['id', 'DESC']
+                ]
             });
-            
-            // 处理剧情数据
-            allStories = allStories.map(story => {
+
+            const relationsByStoryId = new Map();
+            for (const rel of relations) {
+                const sid = rel.storyId;
+                if (!relationsByStoryId.has(sid)) relationsByStoryId.set(sid, []);
+                relationsByStoryId.get(sid).push(rel);
+            }
+
+            allStories = rows.map(story => {
                 const storyData = story.get({ plain: true });
-                
-                // 格式化日期
                 storyData.createdAt = utils.YYYYMMDDHHmmss(storyData.createdAt);
                 storyData.updatedAt = utils.YYYYMMDDHHmmss(storyData.updatedAt);
-                if (storyData.onlineAt) {
-                    storyData.onlineAt = utils.YYYYMMDDHHmmss(storyData.onlineAt);
-                }
-                
-                // 处理pictures字段，确保它是数组
+                if (storyData.onlineAt) storyData.onlineAt = utils.YYYYMMDDHHmmss(storyData.onlineAt);
+
                 if (storyData.pictures) {
-                    try {
-                        storyData.pictures = JSON.parse(storyData.pictures);
-                    } catch (e) {
-                        // 如果解析失败，假设它是单个URL
-                        storyData.pictures = [storyData.pictures];
-                    }
+                    try { storyData.pictures = JSON.parse(storyData.pictures); } catch { storyData.pictures = [storyData.pictures]; }
                 } else {
                     storyData.pictures = [];
                 }
-                
-                // 添加排序信息（使用当前合集中的排序，如果存在）
-                const currentSetRelation = relations.find(rel => rel.storyId === storyData.id && rel.setId === parseInt(id));
+
+                const rels = relationsByStoryId.get(storyData.id) || [];
+                const currentSetRelation = rels.find(r => r.setId === parseInt(id));
                 storyData.sort = currentSetRelation ? currentSetRelation.sort : 0;
-                
-                // 添加所属合集信息
-                storyData.setIds = relations
-                    .filter(rel => rel.storyId === storyData.id)
-                    .map(rel => rel.setId);
-                
-                // 确保isRecommended字段存在
+                storyData.setIds = rels.map(r => r.setId);
                 storyData.isRecommended = !!storyData.isRecommended;
-                
-                // 移除detail字段，列表不需要返回详细内容
                 delete storyData.detail;
-                
                 return storyData;
             });
+
+            ctx.body = {
+                success: true,
+                data: allStories,
+                count,
+                page_all: Math.ceil(count / size),
+                page_now: page
+            };
+            return;
             
-            // 按照关联表中的排序顺序排序
-            allStories.sort((a, b) => {
-                // 首先按时间排序
-                if (a.onlineAt && b.onlineAt) {
-                    const timeComparison = sortDirection === 'ASC' 
-                        ? a.onlineAt.localeCompare(b.onlineAt, 'zh-CN') 
-                        : b.onlineAt.localeCompare(a.onlineAt, 'zh-CN');
-                    
-                    // 如果时间不同，按时间排序
-                    if (timeComparison !== 0) {
-                        return timeComparison;
-                    }
-                } else if (!a.onlineAt && !b.onlineAt) {
-                    // 如果都没有时间，继续按名字排序
-                } else if (!a.onlineAt) {
-                    return sortDirection === 'ASC' ? 1 : -1;
-                } else if (!b.onlineAt) {
-                    return sortDirection === 'ASC' ? -1 : 1;
-                }
-                
-                // 时间相同或都没有时间时，按名字排序
-                // 倒序时名字也按倒序排列
-                return sortDirection === 'ASC' 
-                    ? a.title.localeCompare(b.title, 'zh-CN')
-                    : b.title.localeCompare(a.title, 'zh-CN');
-            });
         }
-        
-        // 获取总数量
-        const totalCount = allStories.length;
-        
-        // 应用分页 - 在排序后进行
-        const stories = allStories.slice((page - 1) * size, page * size);
-        
+
+        // storyIds 为空：直接返回空列表
         ctx.body = {
             success: true,
-            data: stories,
-            count: totalCount,
-            page_all: Math.ceil(totalCount / size),
+            data: [],
+            count: 0,
+            page_all: 0,
             page_now: page
         };
     } catch (error) {
