@@ -769,3 +769,43 @@ export const Guide = sequelize.define('Guide', {
     // Table options
     tableName: 'guide'
 });
+
+export const Menu = sequelize.define('Menu', {
+    id: {
+        primaryKey: true,
+        autoIncrement: true,
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    staple: {
+        type: DataTypes.STRING, // 主食
+        allowNull: true
+    },
+    ingredients: {
+        type: DataTypes.TEXT, // 配料
+        allowNull: true
+    },
+    steps: {
+        type: DataTypes.TEXT, // 步骤
+        allowNull: true
+    },
+    pictures: {
+        type: DataTypes.TEXT, // 多图 JSON string
+        allowNull: true
+    },
+    isDeleted: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    }
+}, {
+    tableName: 'menu'
+});

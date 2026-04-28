@@ -166,6 +166,8 @@ app.use(jwt({
         { path: '/api/works/delete', methods: ['POST'] },
         { path: '/api/guide', methods: ['POST', 'PUT'] },
         { path: '/api/guide/delete', methods: ['POST'] },
+        { path: '/api/menus', methods: ['POST', 'PUT'] },
+        { path: '/api/menus/delete', methods: ['POST'] },
     ];
     
     // 检查当前请求的路径和方法是否需要保护

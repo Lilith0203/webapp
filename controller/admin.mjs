@@ -19,6 +19,12 @@ async function getConfig(ctx, next) {
     if (!ctx.query.keys || requestedKeys.includes('comment')) {
         result.comment = (await ConfigSetting.getConfig('comment')) === '1'; 
     }
+
+    // OCR 普通用户开关：返回布尔值（默认 true）
+    if (!ctx.query.keys || requestedKeys.includes('ocr_user_enabled')) {
+        const v = await ConfigSetting.getConfig('ocr_user_enabled');
+        result.ocr_user_enabled = v === undefined ? true : v === '1';
+    }
     
     ctx.body = {
         success: true,
@@ -32,7 +38,7 @@ async function setConfig(ctx, next) {
     try {
         // 遍历所有提交的配置项
         for (const [key, value] of Object.entries(configData)) {
-            if (key === 'comment') {
+            if (key === 'comment' || key === 'ocr_user_enabled') {
                 // 特殊处理评论状态，确保它是布尔值并转换为'0'或'1'
                 if (typeof value !== 'boolean') {
                     ctx.status = 400;

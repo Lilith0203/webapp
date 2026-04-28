@@ -1,6 +1,7 @@
 import { createRequire } from 'module';
 import * as Util from '@alicloud/tea-util';
 import config from 'config';
+import ConfigSetting from '../util/config.mjs';
 
 const require = createRequire(import.meta.url);
 // 在 ESM 环境下，用 require() 加载 CJS SDK 更稳定
@@ -88,6 +89,22 @@ function toParagraphText(data) {
 // POST /api/ocr
 async function ocr(ctx) {
   const { url, type, languages, outputRow, outputParagraph, outputTable } = ctx.request.body || {};
+
+  // 配置：是否允许普通用户使用 OCR（管理员始终允许）
+  try {
+    const role = ctx && ctx.state && ctx.state.user && ctx.state.user.role;
+    if (role !== 'admin') {
+      const v = await ConfigSetting.getConfig('ocr_user_enabled');
+      const enabled = v === undefined ? true : v === '1';
+      if (!enabled) {
+        ctx.status = 403;
+        ctx.body = { success: false, message: '无权限：管理员已关闭普通用户文字识别功能' };
+        return;
+      }
+    }
+  } catch (e) {
+    // 配置读取失败：默认不阻断
+  }
 
   if (!url || typeof url !== 'string') {
     ctx.status = 400;
