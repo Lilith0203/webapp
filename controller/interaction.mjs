@@ -343,6 +343,66 @@ async function getInteraction(ctx, next) {
     }
 }
 
+// POST /api/interaction/batch - 批量获取交互数据（减少前端 N+1 请求）
+async function getInteractionBatch(ctx, next) {
+    const body = ctx.request.body || {};
+    const type = parseInt(body.type);
+    const clientId = body.clientId || '';
+    const itemIds = Array.isArray(body.itemIds) ? body.itemIds.map(id => parseInt(id)).filter(Boolean) : [];
+
+    if (!type || itemIds.length === 0) {
+        ctx.status = 400;
+        ctx.body = {
+            success: false,
+            message: 'type 和 itemIds 不能为空'
+        };
+        return;
+    }
+
+    try {
+        const interactions = await Interaction.findAll({
+            where: {
+                type,
+                itemId: { [Op.in]: itemIds },
+                isDeleted: 0
+            }
+        });
+
+        const interactionMap = new Map();
+        interactions.forEach(item => {
+            interactionMap.set(parseInt(item.itemId), item);
+        });
+
+        const result = {};
+        for (const id of itemIds) {
+            let hasLiked = false;
+            if (clientId) {
+                const likeKey = `like:${clientId}:${type}:${id}`;
+                hasLiked = !!(await cache.get(likeKey));
+            }
+            const row = interactionMap.get(id);
+            result[id] = {
+                like: row ? row.like : 0,
+                weight: row ? row.weight : 0,
+                top: row ? (row.top || 0) : 0,
+                hasLiked
+            };
+        }
+
+        ctx.body = {
+            success: true,
+            data: result
+        };
+    } catch (error) {
+        console.error('批量获取交互数据失败:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '批量获取交互数据失败'
+        };
+    }
+}
+
 // GET /api/recommended-items - 获取推荐项目列表
 async function getRecommendedItems(ctx, next) {
     let size = ctx.query.size ? parseInt(ctx.query.size) : 12;
@@ -675,6 +735,7 @@ export default {
     'POST /api/interaction/recommend': recommendItem,
     'POST /api/interaction/top': topItem,
     'GET /api/interaction/:type/:itemId/:clientId?': getInteraction,
+    'POST /api/interaction/batch': getInteractionBatch,
     'GET /api/recommended-items': getRecommendedItems,
     'GET /api/top-items': getTopItems
 }; 
