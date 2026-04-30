@@ -109,6 +109,10 @@ export const MaterialType = sequelize.define('MaterialType', {
         type: DataTypes.INTEGER,
         allowNull: false,
     },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
     typeName: {
         type: DataTypes.STRING,
         allowNull: false

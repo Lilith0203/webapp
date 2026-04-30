@@ -143,6 +143,7 @@ app.use(jwt({
         { path: '/api/grid/save', methods: ['POST'] },
         { path: '/api/grid/delete', methods: ['POST'] },
         { path: '/api/interaction/recommend', methods: ['POST'] },
+        { path: '/api/getMaterialType', methods: ['GET'] },
         { path: '/api/updateMaterialType', methods: ['POST'] },
         { path: '/api/addMaterialType', methods: ['POST'] },
         { path: '/api/deleteMaterialType', methods: ['POST'] },

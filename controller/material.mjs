@@ -35,30 +35,46 @@ function arrayToTree(arr, root) {
 
 //GET /getMaterialType
 async function getType(ctx, next) {
+    const userId = getAuthedUserId(ctx)
+    if (!userId) {
+        ctx.status = 401
+        ctx.body = { success: false, message: '未授权，请登录', typetree: [] }
+        return
+    }
     let types = await MaterialType.findAll({
         where: {
+            userId,
             isDeleted: 0
         }
     });
     let typetree = arrayToTree(types, 0)
 
     ctx.body = {
+        success: true,
         typetree: typetree
     }
 }
 
 //POST /api/addMaterialType
 async function addtype(ctx, next) {
+    const userId = getAuthedUserId(ctx)
+    if (!userId) {
+        ctx.status = 401
+        ctx.body = { success: false, message: '未授权，请登录' }
+        return
+    }
     let typeName = ctx.request.body.typeName;
     let parentId = ctx.request.body.parentId || 0;
     if (parentId === 0) {
         await MaterialType.create({
+            userId,
             typeName: typeName,
             level: 0,
             parentId: parentId
         });
     } else {
         await MaterialType.create({
+            userId,
             typeName: typeName,
             level: 1,
             parentId: parentId
@@ -70,6 +86,12 @@ async function addtype(ctx, next) {
 }
 
 async function updateMaterialType(ctx, next) {
+    const userId = getAuthedUserId(ctx)
+    if (!userId) {
+        ctx.status = 401
+        ctx.body = { success: false, message: '未授权，请登录' }
+        return
+    }
     const id = ctx.request.body.id;
     const updateData = {
         typeName: ctx.request.body.typeName,
@@ -77,7 +99,13 @@ async function updateMaterialType(ctx, next) {
 
     try {
         //查找并更新material
-        const materialType = await MaterialType.findByPk(id);
+        const materialType = await MaterialType.findOne({
+            where: {
+                id: id,
+                userId,
+                isDeleted: 0
+            }
+        });
         if (!materialType) {
             ctx.body = {
                 success: false,
@@ -88,7 +116,8 @@ async function updateMaterialType(ctx, next) {
 
         await MaterialType.update(updateData, {
             where: {
-                id: id
+                id: id,
+                userId
             }
         });
         ctx.body = {
@@ -315,6 +344,12 @@ async function deleteMaterial(ctx, next) {
 
 //POST /api/deleteMaterialType
 async function deleteType(ctx, next) {
+    const userId = getAuthedUserId(ctx)
+    if (!userId) {
+        ctx.status = 401
+        ctx.body = { success: false, message: '未授权，请登录' }
+        return
+    }
     const id = ctx.request.body.id;
     const updateData = {
         isDeleted: 1
@@ -322,7 +357,13 @@ async function deleteType(ctx, next) {
 
     try {
         //查找并更新material
-        const materialType = await MaterialType.findByPk(id);
+        const materialType = await MaterialType.findOne({
+            where: {
+                id: id,
+                userId,
+                isDeleted: 0
+            }
+        });
         if (!materialType) {
             ctx.body = {
                 success: false,
@@ -333,7 +374,8 @@ async function deleteType(ctx, next) {
 
         await MaterialType.update(updateData, {
             where: {
-                id: id
+                id: id,
+                userId
             }
         });
         ctx.body = {
