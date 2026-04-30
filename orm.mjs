@@ -756,6 +756,10 @@ export const Guide = sequelize.define('Guide', {
         type: DataTypes.STRING,  // 分类
         allowNull: false
     },
+    thumbnail: {
+        type: DataTypes.STRING, // 缩略图 URL（可选）
+        allowNull: true
+    },
     tags: {
         type: DataTypes.STRING,  // 标签（可选）
         allowNull: true

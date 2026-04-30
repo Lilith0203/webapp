@@ -147,7 +147,7 @@ export const createGuide = async (ctx) => {
             return
         }
         if (!requireAdmin(ctx)) return
-        const { title, content, category, tags } = ctx.request.body
+        const { title, content, category, tags, thumbnail } = ctx.request.body
         
         // 验证必填字段
         if (!title || !content || !category) {
@@ -164,6 +164,7 @@ export const createGuide = async (ctx) => {
             title,
             content,
             category,
+            thumbnail: thumbnail || '',
             tags: tagsString,
             isDeleted: 0
         })
@@ -191,7 +192,7 @@ export const updateGuide = async (ctx) => {
         }
         if (!requireAdmin(ctx)) return
         const { id } = ctx.params
-        const { title, content, category, tags } = ctx.request.body
+        const { title, content, category, tags, thumbnail } = ctx.request.body
         
         const guide = await Guide.findOne({ 
             where: { 
@@ -212,6 +213,7 @@ export const updateGuide = async (ctx) => {
             title: title || guide.title,
             content: content || guide.content,
             category: category || guide.category,
+            thumbnail: thumbnail !== undefined ? (thumbnail || '') : guide.thumbnail,
             tags: tagsString
         })
         
