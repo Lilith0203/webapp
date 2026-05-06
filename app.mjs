@@ -148,6 +148,7 @@ app.use(jwt({
         { path: '/api/addMaterialType', methods: ['POST'] },
         { path: '/api/deleteMaterialType', methods: ['POST'] },
         { path: '/api/material', methods: ['POST'] },
+        { path: '/api/material/countByType', methods: ['GET'] },
         { path: '/api/updateMaterial', methods: ['POST'] },
         { path: '/api/addMaterial', methods: ['POST'] },
         { path: '/api/deleteMaterial', methods: ['POST'] },

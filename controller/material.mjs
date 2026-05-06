@@ -342,6 +342,30 @@ async function deleteMaterial(ctx, next) {
     }
 }
 
+// GET /api/material/countByType?type= — 当前用户下某材料类型的未删除材料数量
+async function countMaterialsByType(ctx) {
+    const userId = getAuthedUserId(ctx)
+    if (!userId) {
+        ctx.status = 401
+        ctx.body = { success: false, message: '未授权，请登录', count: 0 }
+        return
+    }
+    const typeId = parseInt(ctx.query.type, 10)
+    if (!Number.isFinite(typeId) || typeId <= 0) {
+        ctx.status = 400
+        ctx.body = { success: false, message: '无效的 type 参数', count: 0 }
+        return
+    }
+    const count = await Material.count({
+        where: {
+            userId,
+            isDeleted: 0,
+            type: typeId
+        }
+    })
+    ctx.body = { success: true, count }
+}
+
 //POST /api/deleteMaterialType
 async function deleteType(ctx, next) {
     const userId = getAuthedUserId(ctx)
@@ -391,6 +415,7 @@ async function deleteType(ctx, next) {
 
 export default {
     'GET /api/getMaterialType': getType,
+    'GET /api/material/countByType': countMaterialsByType,
     'POST /api/updateMaterialType': updateMaterialType,
     'POST /api/addMaterialType': addtype,
     'POST /api/deleteMaterialType': deleteType,
