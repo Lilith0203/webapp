@@ -166,6 +166,8 @@ app.use(jwt({
         { path: '/api/works/edit', methods: ['POST'] },
         { path: '/api/works/add', methods: ['POST'] },
         { path: '/api/works/delete', methods: ['POST'] },
+        { path: '/api/works-set/add-work', methods: ['POST'] },
+        { path: '/api/works-set/remove-work', methods: ['POST'] },
         { path: '/api/guide', methods: ['POST', 'PUT'] },
         { path: '/api/guide/delete', methods: ['POST'] },
         { path: '/api/menus', methods: ['POST', 'PUT'] },

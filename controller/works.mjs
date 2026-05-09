@@ -4,6 +4,10 @@ import { cleanOssUrls } from '../oss.mjs';
 import { Op } from 'sequelize';
 import cache from '../util/cache.mjs';
 
+function isAdmin(ctx) {
+    return (ctx && ctx.state && ctx.state.user && ctx.state.user.role) === 'admin';
+}
+
 // 缓存键前缀
 const CACHE_KEYS = {
     ALL_TAGS: 'works:tags:all',
@@ -604,7 +608,16 @@ async function worksSet_list(ctx, next) {
 // POST /api/works-set/add-work - 将作品添加到合集
 async function worksSet_addWork(ctx, next) {
     const { setId, worksId, order } = ctx.request.body;
-    
+
+    if (!isAdmin(ctx)) {
+        ctx.status = 403;
+        ctx.body = {
+            success: false,
+            message: '需要管理员权限'
+        };
+        return;
+    }
+
     try {
         // 检查合集是否存在
         const worksSet = await WorksSet.findOne({
@@ -808,7 +821,16 @@ async function worksSet_works(ctx, next) {
 // POST /api/works-set/remove-work - 将作品从合集中移出
 async function worksSet_removeWork(ctx, next) {
     const { setId, worksId } = ctx.request.body;
-    
+
+    if (!isAdmin(ctx)) {
+        ctx.status = 403;
+        ctx.body = {
+            success: false,
+            message: '需要管理员权限'
+        };
+        return;
+    }
+
     try {
         await WorksRelation.update({
             isDeleted: 1,
