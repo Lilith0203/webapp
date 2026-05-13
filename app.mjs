@@ -161,6 +161,8 @@ app.use(jwt({
         { path: '/api/story-relation', methods: ['PUT'] },
         { path: '/api/upload', methods: ['POST'] },
         { path: '/api/ocr', methods: ['POST'] },
+        { path: '/api/ocr/quota', methods: ['GET'] },
+        { path: '/api/ocr/quota/admin', methods: ['POST'] },
         { path: '/api/comment_delete', methods: ['POST'] },
         { path: '/api/comment_approve', methods: ['POST'] },
         { path: '/api/works/edit', methods: ['POST'] },
