@@ -118,7 +118,17 @@ function getObjectNameFromUrl(url) {
     }
 }
 
-// POST /api/comment
+function getAuthedUserId(ctx) {
+    const id = ctx && ctx.state && ctx.state.user && ctx.state.user.id;
+    return typeof id === 'number' || typeof id === 'string' ? parseInt(id, 10) : null;
+}
+
+function isAdminUser(ctx) {
+    const role = ctx && ctx.state && ctx.state.user && ctx.state.user.role;
+    return typeof role === 'string' && role.toLowerCase() === 'admin';
+}
+
+// POST /api/comment — 未登录仅可发顶级评论；回复必须登录
 async function addComment(ctx, next) {
     const commentStatus = await ConfigSetting.getConfig('comment');
     if (commentStatus !== '1') {
@@ -128,24 +138,82 @@ async function addComment(ctx, next) {
         };
         return;
     }
-    const { name, content, type, itemId, reply } = ctx.request.body;
+
+    const { name: bodyName, content, type, itemId, reply } = ctx.request.body;
+
+    if (content == null || String(content).trim() === '') {
+        ctx.body = {
+            success: false,
+            message: '评论内容不能为空'
+        };
+        return;
+    }
+
+    const replyParentId = parseInt(reply, 10);
+    const isReply = !Number.isNaN(replyParentId) && replyParentId > 0;
 
     try {
-        // 创建新评论，默认未审核
+        const uid = getAuthedUserId(ctx);
+        const isLoggedIn = uid != null && !Number.isNaN(uid) && uid > 0;
+
+        if (isReply && !isLoggedIn) {
+            ctx.status = 401;
+            ctx.body = {
+                success: false,
+                message: '请先登录后再回复'
+            };
+            return;
+        }
+
+        let displayName;
+        let userIdVal;
+        let isApproved;
+
+        if (isLoggedIn) {
+            displayName =
+                ctx.state.user && ctx.state.user.name != null
+                    ? String(ctx.state.user.name).trim().slice(0, 64)
+                    : '';
+            if (!displayName) {
+                ctx.body = {
+                    success: false,
+                    message: '无法获取用户名，请重新登录'
+                };
+                return;
+            }
+            userIdVal = uid;
+            isApproved = 1;
+        } else {
+            displayName =
+                bodyName != null ? String(bodyName).trim().slice(0, 64) : '';
+            if (!displayName) {
+                ctx.body = {
+                    success: false,
+                    message: '请填写称呼'
+                };
+                return;
+            }
+            userIdVal = null;
+            isApproved = 0;
+        }
+
         const comment = await Comment.create({
-            name,
+            name: displayName,
             content,
             type,
             itemId,
-            reply,
-            isApproved: 0, // 确保新评论默认为未审核状态
+            reply: isReply ? replyParentId : 0,
+            userId: userIdVal,
+            isApproved,
+            adminRead: 0,
             createdAt: new Date(),
             updatedAt: new Date()
         });
 
         ctx.body = {
             success: true,
-            message: '评论成功，等待审核',
+            message: isLoggedIn ? '评论已发布' : '评论已提交，管理员查看后将公开展示',
+            guestPending: !isLoggedIn,
             data: {
                 comment
             }
@@ -164,9 +232,10 @@ async function addComment(ctx, next) {
 async function getComments(ctx, next) {
     const itemId = parseInt(ctx.params.itemId);
     const type = ctx.query.type; // 文章或作品类型
-    const approvalStatus = ctx.query.approval; // 新增：审核状态参数
-    
-    // 新增：翻页参数
+    /** 管理列表专用：unread | read（未读 adminRead=0，已读 adminRead=1） */
+    const approvalStatus = ctx.query.approval;
+
+    // 翻页参数
     const page = parseInt(ctx.query.page) || 1; // 页码，默认为1
     const pageSize = parseInt(ctx.query.pageSize) || 10; // 每页数量，默认为10
     
@@ -185,20 +254,28 @@ async function getComments(ctx, next) {
         if (type) {
             whereCondition.type = type;
         }
-        
-        // 根据审核状态过滤
-        if (approvalStatus === 'approved') {
-            whereCondition.isApproved = 1;
-        } else if (approvalStatus === 'pending') {
-            whereCondition.isApproved = 0;
-        }
-        // 如果 approvalStatus 不是 'approved' 或 'pending'，则不添加过滤条件，返回所有评论
 
-        // 如果是审核界面（没有itemId），获取所有未审核的评论
+        if (!isNaN(itemId)) {
+            // 前台详情：只按「是否公开展示」筛选，与管理员未读/已读无关
+            whereCondition.isApproved = 1;
+        } else {
+            // 管理后台：只有未读 / 已读两种（非已读即未读）
+            whereCondition.adminRead = approvalStatus === 'read' ? 1 : 0;
+        }
+
+        // 管理列表（无 itemId）：仅管理员
         if (isNaN(itemId)) {
+            if (!isAdminUser(ctx)) {
+                ctx.status = 403;
+                ctx.body = {
+                    success: false,
+                    message: '无权限'
+                };
+                return;
+            }
             const offset = (page - 1) * pageSize;
             
-            // 获取所有未审核的评论（包括回复）
+            // 按 adminRead 分页列表（含回复行，扁平）
             const totalCount = await Comment.count({
                 where: whereCondition
             });
@@ -360,14 +437,73 @@ async function getComments(ctx, next) {
     }
 }
 
+// GET /api/user/my-comments — 当前登录用户自己的评论（需 JWT）
+async function getMyComments(ctx, next) {
+    const uid = getAuthedUserId(ctx);
+    if (uid == null || Number.isNaN(uid) || uid <= 0) {
+        ctx.status = 401;
+        ctx.body = {
+            success: false,
+            message: '请先登录'
+        };
+        return;
+    }
+
+    const page = parseInt(ctx.query.page) || 1;
+    const rawSize = parseInt(ctx.query.pageSize) || 20;
+    const pageSize = Math.min(Math.max(rawSize, 1), 50);
+    const offset = (page - 1) * pageSize;
+
+    try {
+        const whereCondition = { isDeleted: 0, userId: uid };
+        const totalCount = await Comment.count({ where: whereCondition });
+        const rows = await Comment.findAll({
+            where: whereCondition,
+            order: [['createdAt', 'DESC']],
+            limit: pageSize,
+            offset
+        });
+
+        const comments = rows.map((comment) => {
+            const row = comment.get({ plain: true });
+            row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt);
+            return row;
+        });
+
+        const totalPages = Math.ceil(totalCount / pageSize) || 1;
+        const hasNextPage = page < totalPages;
+        const hasPrevPage = page > 1;
+
+        ctx.body = {
+            success: true,
+            comments,
+            pagination: {
+                page,
+                pageSize,
+                totalCount,
+                totalPages,
+                hasNextPage,
+                hasPrevPage
+            }
+        };
+    } catch (error) {
+        console.error('Get my comments error:', error);
+        ctx.status = 500;
+        ctx.body = {
+            success: false,
+            message: '获取评论失败'
+        };
+    }
+}
+
 async function deleteComment(ctx, next) {
     const id = parseInt(ctx.request.body.id);
+    const uid = getAuthedUserId(ctx);
     const updateData = {
         isDeleted: 1
     };
-    
+
     try {
-        // 查找文章
         const comment = await Comment.findByPk(id);
         if (!comment) {
             ctx.status = 404;
@@ -378,7 +514,22 @@ async function deleteComment(ctx, next) {
             return;
         }
 
-        // 更新文章
+        const admin = isAdminUser(ctx);
+        if (!admin) {
+            const ownerId =
+                comment.userId != null && comment.userId !== ''
+                    ? parseInt(comment.userId, 10)
+                    : null;
+            if (!uid || ownerId == null || Number.isNaN(ownerId) || ownerId !== uid) {
+                ctx.status = 403;
+                ctx.body = {
+                    success: false,
+                    message: '无权限删除该评论'
+                };
+                return;
+            }
+        }
+
         await Comment.update(updateData, {
             where: { id: id }
         });
@@ -397,13 +548,20 @@ async function deleteComment(ctx, next) {
     }
 }
 
-// 新增：审核评论的函数
+// 管理员：标记已读（游客评论同时公开展示；不需要的内容请用删除）
 async function approveComment(ctx, next) {
+    if (!isAdminUser(ctx)) {
+        ctx.status = 403;
+        ctx.body = {
+            success: false,
+            message: '无权限'
+        };
+        return;
+    }
+
     const id = parseInt(ctx.request.body.id);
-    const isApproved = parseInt(ctx.request.body.isApproved) || 1; // 默认为审核通过
-    
+
     try {
-        // 查找评论
         const comment = await Comment.findByPk(id);
         if (!comment) {
             ctx.status = 404;
@@ -414,21 +572,21 @@ async function approveComment(ctx, next) {
             return;
         }
 
-        // 更新评论的审核状态
-        await Comment.update({ isApproved }, {
-            where: { id: id }
-        });
-
+        const updates = { adminRead: 1, updatedAt: new Date() };
+        if (comment.isApproved === 0) {
+            updates.isApproved = 1;
+        }
+        await Comment.update(updates, { where: { id } });
         ctx.body = {
             success: true,
-            message: isApproved === 1 ? '评论审核通过' : '评论审核拒绝'
+            message: '已标记为已读'
         };
     } catch (error) {
         console.error('Approve comment error:', error);
         ctx.status = 500;
         ctx.body = {
             success: false,
-            message: '评论审核操作失败'
+            message: '操作失败'
         };
     }
 }
@@ -437,8 +595,9 @@ export default {
     'POST /api/upload': [upload.single('file'), uploadFile],
     'POST /api/oss-refresh': refreshSignedUrl,
     'GET /api/comments/:itemId': getComments,
-    'GET /api/comments': getComments, // 新增：获取所有评论的路由，用于管理界面
+    'GET /api/comments': getComments,
+    'GET /api/user/my-comments': getMyComments,
     'POST /api/comment': addComment,
     'POST /api/comment_delete': deleteComment,
-    'POST /api/comment_approve': approveComment // 新增：审核评论的路由
+    'POST /api/comment_approve': approveComment
 }

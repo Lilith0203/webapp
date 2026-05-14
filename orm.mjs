@@ -399,10 +399,21 @@ export const Comment = sequelize.define('Comment', {
         allowNull: false,
         defaultValue: 0
     },
-    isApproved: {  // 新增审核字段
+    isApproved: {  // 是否对访客公开展示：1 显示，0 不显示（游客新评默认 0，登录用户默认 1）
         type: DataTypes.INTEGER,
         allowNull: false,
-        defaultValue: 0  // 0表示未审核，1表示已审核通过
+        defaultValue: 0
+    },
+    /** 管理员是否已读：0 未读，1 已读（用于管理页红点与列表） */
+    adminRead: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
+    /** 发表评论时的登录用户 id，未登录为 null */
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: true
     },
     isDeleted: {
         type: DataTypes.INTEGER,

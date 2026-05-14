@@ -100,7 +100,9 @@ app.use(async (ctx, next) => {
     ctx.method === 'GET' &&
     (ctx.path === '/api/grid/list' || ctx.path.startsWith('/api/grid/'));
 
-  if (isOptionalAuthGetGrid) {
+  const isOptionalAuthPostComment = ctx.method === 'POST' && ctx.path === '/api/comment';
+
+  if (isOptionalAuthGetGrid || isOptionalAuthPostComment) {
     const header = (ctx.headers && (ctx.headers.authorization || ctx.headers.Authorization)) || '';
     const token = typeof header === 'string' && header.startsWith('Bearer ')
       ? header.slice('Bearer '.length).trim()
@@ -122,10 +124,17 @@ app.use(jwt({
   secret: JWT_SECRET 
 }).unless({ 
   custom: (ctx) => {
+    // 管理员全站评论列表：仅精确路径 /api/comments（无 :itemId），需 JWT。
+    // 详情页 GET /api/comments/123 不走此处，仍为公开。
+    if (ctx.method === 'GET' && ctx.path === '/api/comments') {
+      return false;
+    }
+
     // 需要JWT验证的路径和方法组合
     const protectedRoutes = [
         { path: '/api/config/set', methods: ['POST'] },
         { path: '/api/user/profile/update', methods: ['POST'] },
+        { path: '/api/user/my-comments', methods: ['GET'] },
         // 计划：仅允许登录用户访问自己的计划
         { path: '/api/plans', methods: ['GET'] },
         { path: '/api/plan/', methods: ['GET'] },
