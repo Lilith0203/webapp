@@ -379,16 +379,10 @@ async function ocr(ctx) {
         };
     } catch (error) {
         console.error('Aliyun OCR error:', error);
-        const raw = String(error?.message || error?.data?.Message || '');
-        let message = raw || 'OCR 识别失败';
-        if (/illegalImageSize|8192|must not be less than 5px/i.test(raw)) {
-            message =
-                '图片尺寸超出 OCR 限制：宽和高均需在 5～8192 像素之间。请减少一次选择的张数，或裁剪过长截图后重试。';
-        }
         ctx.status = error?.status || 500;
         ctx.body = {
             success: false,
-            message
+            message: error?.message || 'OCR 识别失败'
         };
     }
 }

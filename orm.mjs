@@ -30,6 +30,11 @@ export const User = sequelize.define('User', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    /** 非空表示已自行设置过密码；为空则首次可在管理页免旧密码设置一次 */
+    passwordChangedAt: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
     // 角色：admin / user（需要你在数据库 user 表手动加列）
     role: {
         type: DataTypes.STRING,

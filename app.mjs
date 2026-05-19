@@ -10,10 +10,11 @@ import { bodyParser } from '@koa/bodyparser';
 import cors from '@koa/cors';
 import multer from '@koa/multer';
 import jsonwebtoken from 'jsonwebtoken';
+import crypto from 'crypto';
 
 import controller from './controller.mjs';
 //import templateEngine from './view.mjs';
-import { sequelize, User } from './orm.mjs';
+import { sequelize } from './orm.mjs';
 import sslConfig from './util/ssh.mjs';
 import http from 'http';
 
@@ -46,8 +47,32 @@ app.context.render = function (view, model) {
     this.response.body = templateEngine.render(view, Object.assign({}, this.state || {}, model || {}));
 }*/
 
+const INITIAL_PASSWORD_MD5 = crypto.createHash('md5').update('lilithu').digest('hex');
+
+async function migrateUserPasswordChangedAt() {
+    try {
+        await sequelize.query(
+            'ALTER TABLE `user` ADD COLUMN `passwordChangedAt` DATETIME NULL'
+        );
+        console.log('[db] user.passwordChangedAt column added');
+    } catch (err) {
+        if (!/Duplicate column|already exists/i.test(err.message)) {
+            console.warn('[db] user.passwordChangedAt migration skipped:', err.message);
+        }
+    }
+    try {
+        await sequelize.query(
+            'UPDATE `user` SET `passwordChangedAt` = NOW() WHERE `passwordChangedAt` IS NULL AND `password` != ?',
+            { replacements: [INITIAL_PASSWORD_MD5] }
+        );
+    } catch (err) {
+        console.warn('[db] user.passwordChangedAt backfill skipped:', err.message);
+    }
+}
+
 async function initDb() {
     await sequelize.sync();
+    await migrateUserPasswordChangedAt();
 }
 await initDb();
 
@@ -133,6 +158,7 @@ app.use(jwt({
     // 需要JWT验证的路径和方法组合
     const protectedRoutes = [
         { path: '/api/config/set', methods: ['POST'] },
+        { path: '/api/user/profile', methods: ['GET'] },
         { path: '/api/user/profile/update', methods: ['POST'] },
         { path: '/api/user/my-comments', methods: ['GET'] },
         // 计划：仅允许登录用户访问自己的计划
