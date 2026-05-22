@@ -208,8 +208,12 @@ export const Material = sequelize.define('Material', {
         defaultValue: 0
     }
 }, {
-    //指定表名
-    tableName: 'material'
+    tableName: 'material',
+    indexes: [
+        { fields: ['userId', 'isDeleted'], name: 'idx_material_user_deleted' },
+        { fields: ['userId', 'isDeleted', 'updatedAt'], name: 'idx_material_user_deleted_updated' },
+        { fields: ['userId', 'isDeleted', 'createdAt'], name: 'idx_material_user_deleted_created' }
+    ]
 });
 
 export const GridData = sequelize.define('GridData', {

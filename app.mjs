@@ -185,6 +185,7 @@ app.use(jwt({
         { path: '/api/material', methods: ['POST'] },
         { path: '/api/material/countByType', methods: ['GET'] },
         { path: '/api/updateMaterial', methods: ['POST'] },
+        { path: '/api/batchUpdateMaterial', methods: ['POST'] },
         { path: '/api/addMaterial', methods: ['POST'] },
         { path: '/api/deleteMaterial', methods: ['POST'] },
         { path: '/api/story-sets', methods: ['POST', 'PUT'] },

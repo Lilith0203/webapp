@@ -1,7 +1,29 @@
-import { MaterialType } from '../orm.mjs'
-import { Material } from '../orm.mjs'
+import { MaterialType, Material, sequelize } from '../orm.mjs'
 import { cleanOssUrl } from '../oss.mjs';
-import { Op } from 'sequelize';
+import { Op, Sequelize } from 'sequelize';
+
+const MATERIAL_LIST_ATTRIBUTES = [
+    'id', 'name', 'type', 'substance', 'size', 'shape', 'color',
+    'price', 'stock', 'shop', 'note', 'link', 'pic', 'createdAt', 'updatedAt'
+];
+
+function buildMaterialUpdateData(body) {
+    const cleanedUrl = body.pic ? cleanOssUrl(body.pic) : '';
+    return {
+        name: body.name,
+        type: parseInt(body.type),
+        substance: body.substance,
+        size: body.size,
+        shape: body.shape,
+        color: body.color,
+        price: body.price,
+        stock: body.stock,
+        shop: body.shop,
+        note: body.note,
+        link: body.link,
+        pic: cleanedUrl
+    };
+}
 
 function getAuthedUserId(ctx) {
     const id = ctx && ctx.state && ctx.state.user && ctx.state.user.id;
@@ -161,19 +183,12 @@ async function material(ctx, next) {
     
     // 默认隐藏“明确缺货”的材料（stock 为 '0' 或 '无'），但保留空值/未知库存
     // 除非 showAll 为 true 或者指定了 ids
-    if (!showAll && !(ids && ids.length > 0)) {
-        whereCondition.stock = {
-            [Op.or]: [
-                { [Op.is]: null },
-                { [Op.eq]: '' },
-                {
-                    [Op.and]: [
-                        { [Op.ne]: '0' },
-                        { [Op.ne]: '无' }
-                    ]
-                }
-            ]
-        };
+    if (!showAll && !isIdsQuery) {
+        whereCondition[Op.and] = [
+            Sequelize.literal(
+                "(stock IS NULL OR stock = '' OR (stock <> '0' AND stock <> '无'))"
+            )
+        ];
     }
     
     // 构建排序条件
@@ -189,14 +204,16 @@ async function material(ctx, next) {
         }
     }
     
-    let materials = await Material.findAll({
+    const materials = await Material.findAll({
         where: whereCondition,
-        order: orderCondition
+        order: orderCondition,
+        attributes: MATERIAL_LIST_ATTRIBUTES,
+        raw: true
     });
-    
+
     ctx.body = {
-        materials: materials,
-    }
+        materials
+    };
 }
 
 //POST /api/updateMaterial
@@ -208,21 +225,7 @@ async function updateMaterial(ctx, next) {
         return
     }
     const id = ctx.request.body.id;
-    const cleanedUrl = ctx.request.body.pic ? cleanOssUrl(ctx.request.body.pic) : '';
-    const updateData = {
-        name: ctx.request.body.name,
-        type: parseInt(ctx.request.body.type),
-        substance: ctx.request.body.substance,
-        size: ctx.request.body.size,
-        shape: ctx.request.body.shape,
-        color: ctx.request.body.color,
-        price: ctx.request.body.price,
-        stock: ctx.request.body.stock,
-        shop: ctx.request.body.shop,
-        note: ctx.request.body.note,
-        link: ctx.request.body.link,
-        pic: cleanedUrl
-    };
+    const updateData = buildMaterialUpdateData(ctx.request.body);
 
     try {
         //查找并更新material
@@ -257,6 +260,70 @@ async function updateMaterial(ctx, next) {
     }
 }
 
+// POST /api/batchUpdateMaterial — 批量更新材料（单次请求）
+async function batchUpdateMaterial(ctx) {
+    const userId = getAuthedUserId(ctx)
+    if (!userId) {
+        ctx.status = 401
+        ctx.body = { success: false, message: '未授权，请登录' }
+        return
+    }
+
+    const { materials } = ctx.request.body || {}
+    if (!Array.isArray(materials) || materials.length === 0) {
+        ctx.status = 400
+        ctx.body = { success: false, message: 'materials 不能为空' }
+        return
+    }
+
+    const failed = []
+    let updated = 0
+    const transaction = await sequelize.transaction()
+
+    try {
+        for (let i = 0; i < materials.length; i++) {
+            const item = materials[i]
+            const id = parseInt(item?.id, 10)
+            if (!Number.isFinite(id)) {
+                failed.push({ index: i, id: item?.id, message: '无效的材料 ID' })
+                continue
+            }
+
+            const material = await Material.findOne({
+                where: { id, userId },
+                transaction
+            })
+            if (!material) {
+                failed.push({ index: i, id, message: '未找到该材料' })
+                continue
+            }
+
+            await Material.update(buildMaterialUpdateData(item), {
+                where: { id, userId },
+                transaction
+            })
+            updated++
+        }
+
+        await transaction.commit()
+        ctx.body = {
+            success: failed.length === 0,
+            updated,
+            failed,
+            message: failed.length
+                ? `已更新 ${updated} 条，${failed.length} 条失败`
+                : `已成功更新 ${updated} 条`
+        }
+    } catch (error) {
+        await transaction.rollback()
+        ctx.status = 500
+        ctx.body = {
+            success: false,
+            message: '批量更新失败: ' + error.message
+        }
+    }
+}
+
 //POST /api/addMaterial
 async function addMaterial(ctx, next) {
     const userId = getAuthedUserId(ctx)
@@ -265,6 +332,7 @@ async function addMaterial(ctx, next) {
         ctx.body = { success: false, message: '未授权，请登录' }
         return
     }
+    const cleanedUrl = ctx.request.body.pic ? cleanOssUrl(ctx.request.body.pic) : '';
     const newData = {
         userId,
         name: ctx.request.body.name,
@@ -278,6 +346,7 @@ async function addMaterial(ctx, next) {
         shop: ctx.request.body.shop,
         note: ctx.request.body.note,
         link: ctx.request.body.link,
+        pic: cleanedUrl
     };
 
     try {
@@ -421,6 +490,7 @@ export default {
     'POST /api/deleteMaterialType': deleteType,
     'POST /api/material': material,
     'POST /api/updateMaterial': updateMaterial,
+    'POST /api/batchUpdateMaterial': batchUpdateMaterial,
     'POST /api/addMaterial': addMaterial,
     'POST /api/deleteMaterial': deleteMaterial,
 }
