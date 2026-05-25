@@ -75,6 +75,100 @@ function parseMaterials(materialsStr) {
  * @param {Array|string} materials 材料数据
  * @returns {string} JSON字符串
  */
+/**
+ * 解析作品规格套（多套价格+材料），兼容旧数据
+ */
+function normalizeVariantItem(item) {
+    const materials = processMaterials(item?.materials ?? []);
+    let price = item?.price;
+    if (price === '' || price === null || price === undefined) {
+        price = '';
+    } else {
+        const n = parseFloat(price);
+        price = Number.isFinite(n) ? n : '';
+    }
+    return {
+        name: String(item?.name ?? '').trim(),
+        price,
+        materials: JSON.parse(materials)
+    };
+}
+
+function normalizeVariantsFromBody(body) {
+    if (Array.isArray(body.variants) && body.variants.length) {
+        return body.variants.map(normalizeVariantItem);
+    }
+    return [
+        normalizeVariantItem({
+            name: '',
+            price: body.price,
+            materials: body.materials
+        })
+    ];
+}
+
+function parseVariantsField(workData) {
+    let variants = [];
+    try {
+        const raw = workData.variants;
+        if (raw) {
+            const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            if (Array.isArray(parsed) && parsed.length) {
+                variants = parsed.map((v) => {
+                    const item = normalizeVariantItem(v);
+                    return {
+                        ...item,
+                        materials: parseMaterials(JSON.stringify(item.materials))
+                    };
+                });
+            }
+        }
+    } catch (e) {
+        console.error('Parse variants error:', e);
+    }
+    if (!variants.length) {
+        let mats = workData.materials ?? '[]';
+        if (Array.isArray(mats)) {
+            mats = JSON.stringify(mats);
+        }
+        variants = [
+            {
+                name: '',
+                price:
+                    workData.price === '' || workData.price == null
+                        ? ''
+                        : parseFloat(workData.price) || 0,
+                materials: parseMaterials(mats)
+            }
+        ];
+    }
+    return variants;
+}
+
+function applyVariantsToWorkRow(row) {
+    row.variants = parseVariantsField(row);
+    const primary = row.variants[0] || { name: '', price: '', materials: [] };
+    row.price = primary.price === '' ? '' : primary.price;
+    row.materials = primary.materials;
+    return row;
+}
+
+function serializeVariantsForDb(variants) {
+    const normalized = variants.map((v) => {
+        const item = normalizeVariantItem(v);
+        return item;
+    });
+    return JSON.stringify(normalized);
+}
+
+function primaryFromVariants(variants) {
+    const first = variants[0] || { name: '', price: 0, materials: [] };
+    return {
+        price: first.price === '' ? 0 : parseFloat(first.price) || 0,
+        materials: processMaterials(first.materials)
+    };
+}
+
 function processMaterials(materials) {
     if (typeof materials === 'string') {
         try {
@@ -181,12 +275,14 @@ async function works(ctx, next) {
             row.materials = parseMaterials(row.materials || '[]');
             row.video = row.video || '';
             row.link = row.link || '';
+            applyVariantsToWorkRow(row);
         } catch (e) {
             row.tags = [];
             row.pictures = [];
             row.materials = [];
             row.video = '';
             row.link = '';
+            row.variants = [{ name: '', price: '', materials: [] }];
         }
         row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt);
         row.updatedAt = utils.YYYYMMDDHHmmss(row.updatedAt);
@@ -299,8 +395,8 @@ async function works_add(ctx, next) {
             ? JSON.stringify(workData.pictures)
             : workData.pictures;
             
-        // 处理 materials 数组
-        const materials = processMaterials(workData.materials);
+        const variants = normalizeVariantsFromBody(workData);
+        const primary = primaryFromVariants(variants);
 
         // 创建新文章
         const works = await Works.create({
@@ -308,10 +404,11 @@ async function works_add(ctx, next) {
             description: workData.description,
             pictures: pictures,
             tags: tags,
-            materials: materials,
+            materials: primary.materials,
+            variants: serializeVariantsForDb(variants),
             video: workData.video || '',
             link: workData.link || '',
-            price: workData.price || 0,
+            price: primary.price,
             status: workData.status !== undefined ? parseInt(workData.status) : 0,
             createdAt: new Date(),
             updatedAt: new Date()
@@ -361,8 +458,8 @@ async function works_edit(ctx, next) {
             ? JSON.stringify(updateData.pictures)
             : updateData.pictures;
             
-        // 处理 materials 数组
-        const materials = processMaterials(updateData.materials);
+        const variants = normalizeVariantsFromBody(updateData);
+        const primary = primaryFromVariants(variants);
 
         // 更新文章
         const updateFields = {
@@ -370,10 +467,11 @@ async function works_edit(ctx, next) {
             description: updateData.description,
             pictures: pictures,
             tags: tags,
-            materials: materials,
+            materials: primary.materials,
+            variants: serializeVariantsForDb(variants),
             video: updateData.video || '',
             link: updateData.link || '',
-            price: updateData.price || 0,
+            price: primary.price,
             updatedAt: new Date()
         };
         
@@ -427,12 +525,14 @@ async function works_detail(ctx, next) {
             workData.materials = parseMaterials(workData.materials || '[]');
             workData.video = workData.video || '';
             workData.link = workData.link || '';
+            applyVariantsToWorkRow(workData);
         } catch (e) {
             workData.tags = [];
             workData.pictures = [];
             workData.materials = [];
             workData.video = '';
             workData.link = '';
+            workData.variants = [{ name: '', price: '', materials: [] }];
         }
         workData.updatedAt = utils.YYYYMMDDHHmmss(workData.updatedAt);
         
@@ -789,12 +889,14 @@ async function worksSet_works(ctx, next) {
                 workData.materials = parseMaterials(workData.materials || '[]');
                 workData.video = workData.video || '';
                 workData.link = workData.link || '';
+                applyVariantsToWorkRow(workData);
             } catch (e) {
                 workData.tags = [];
                 workData.pictures = [];
                 workData.materials = [];
                 workData.video = '';
                 workData.link = '';
+                workData.variants = [{ name: '', price: '', materials: [] }];
             }
             workData.createdAt = utils.YYYYMMDDHHmmss(workData.createdAt);
             workData.updatedAt = utils.YYYYMMDDHHmmss(workData.updatedAt);

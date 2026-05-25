@@ -49,30 +49,8 @@ app.context.render = function (view, model) {
 
 const INITIAL_PASSWORD_MD5 = crypto.createHash('md5').update('lilithu').digest('hex');
 
-async function migrateUserPasswordChangedAt() {
-    try {
-        await sequelize.query(
-            'ALTER TABLE `user` ADD COLUMN `passwordChangedAt` DATETIME NULL'
-        );
-        console.log('[db] user.passwordChangedAt column added');
-    } catch (err) {
-        if (!/Duplicate column|already exists/i.test(err.message)) {
-            console.warn('[db] user.passwordChangedAt migration skipped:', err.message);
-        }
-    }
-    try {
-        await sequelize.query(
-            'UPDATE `user` SET `passwordChangedAt` = NOW() WHERE `passwordChangedAt` IS NULL AND `password` != ?',
-            { replacements: [INITIAL_PASSWORD_MD5] }
-        );
-    } catch (err) {
-        console.warn('[db] user.passwordChangedAt backfill skipped:', err.message);
-    }
-}
-
 async function initDb() {
     await sequelize.sync();
-    await migrateUserPasswordChangedAt();
 }
 await initDb();
 

@@ -295,6 +295,11 @@ export const Works = sequelize.define('Works', {
         type: DataTypes.TEXT,
         allowNull: true
     },
+    /** 多套价格与材料 JSON: [{ name, price, materials }] */
+    variants: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
     status: {
         type: DataTypes.INTEGER,
         allowNull: false,
