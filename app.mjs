@@ -113,7 +113,13 @@ app.use(async (ctx, next) => {
 
   const isOptionalAuthPostComment = ctx.method === 'POST' && ctx.path === '/api/comment';
 
-  if (isOptionalAuthGetGrid || isOptionalAuthPostComment) {
+  const isOptionalAuthPostMaterialIds =
+    ctx.method === 'POST' &&
+    ctx.path === '/api/material' &&
+    Array.isArray(ctx.request.body?.ids) &&
+    ctx.request.body.ids.length > 0;
+
+  if (isOptionalAuthGetGrid || isOptionalAuthPostComment || isOptionalAuthPostMaterialIds) {
     const header = (ctx.headers && (ctx.headers.authorization || ctx.headers.Authorization)) || '';
     const token = typeof header === 'string' && header.startsWith('Bearer ')
       ? header.slice('Bearer '.length).trim()
@@ -139,6 +145,14 @@ app.use(jwt({
     // 详情页 GET /api/comments/123 不走此处，仍为公开。
     if (ctx.method === 'GET' && ctx.path === '/api/comments') {
       return false;
+    }
+
+    // 作品详情按 ids 批量查材料：未登录可看清单，登录后可识别自己的材料
+    if (ctx.method === 'POST' && ctx.path === '/api/material') {
+      const ids = ctx.request.body && ctx.request.body.ids;
+      if (Array.isArray(ids) && ids.length > 0) {
+        return true;
+      }
     }
 
     // 需要JWT验证的路径和方法组合
@@ -198,6 +212,14 @@ app.use(jwt({
         { path: '/api/menus/delete', methods: ['POST'] },
     ];
     
+    // 作品私人模式列表/标签：须登录
+    if (ctx.method === 'GET' && (ctx.path === '/api/works' || ctx.path === '/api/worktags')) {
+        const scope = ctx.query && ctx.query.scope;
+        if (scope === 'mine') {
+            return false;
+        }
+    }
+
     // 检查当前请求的路径和方法是否需要保护
     for (const route of protectedRoutes) {
         if (ctx.path.startsWith(route.path) && route.methods.includes(ctx.method)) {

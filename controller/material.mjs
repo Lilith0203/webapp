@@ -3,7 +3,7 @@ import { cleanOssUrl } from '../oss.mjs';
 import { Op, Sequelize } from 'sequelize';
 
 const MATERIAL_LIST_ATTRIBUTES = [
-    'id', 'name', 'type', 'substance', 'size', 'shape', 'color',
+    'id', 'userId', 'name', 'type', 'substance', 'size', 'shape', 'color',
     'price', 'stock', 'shop', 'note', 'link', 'pic', 'createdAt', 'updatedAt'
 ];
 

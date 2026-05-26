@@ -2,22 +2,27 @@ import * as utils from 'utility';
 import { Works, WorksSet, WorksRelation } from '../orm.mjs';
 import { cleanOssUrls } from '../oss.mjs';
 import { Op } from 'sequelize';
-import cache from '../util/cache.mjs';
 import { getInteractionMapForItems } from './interaction.mjs';
 import {
     WORK_LIST_ATTRIBUTES,
     serializeWorkListRow
 } from '../util/worksListSerialize.mjs';
+import {
+    getAuthedUserId,
+    applyWorksOwnerScope
+} from '../util/workOwnerScope.mjs';
 
 function isAdmin(ctx) {
     return (ctx && ctx.state && ctx.state.user && ctx.state.user.role) === 'admin';
 }
 
-// 缓存键前缀
-const CACHE_KEYS = {
-    ALL_TAGS: 'works:tags:all',
-    TAG_COUNT: 'works:tags:count:',
-};
+function canManageWork(ctx, work) {
+    if (!work) return false;
+    if (isAdmin(ctx)) return true;
+    const uid = getAuthedUserId(ctx);
+    if (!uid) return false;
+    return parseInt(work.userId, 10) === uid;
+}
 
 /**
  * 从JSON字符串数组中提取所有标签
@@ -235,6 +240,15 @@ async function works(ctx, next) {
     let where = {
         isDeleted: 0
     };
+
+    const scope = ctx.query.scope === 'mine' ? 'mine' : 'public';
+    const scoped = await applyWorksOwnerScope(where, scope, ctx);
+    if (!scoped.ok) {
+        ctx.status = scoped.status;
+        ctx.body = scoped.body;
+        return;
+    }
+    where = scoped.where;
     
     // 如果有status筛选，添加status条件
     if (status !== undefined && (status === 0 || status === 1)) {
@@ -306,70 +320,57 @@ async function works(ctx, next) {
     }
 }
 
-// GET /api/worktags
+// GET /api/worktags（按用户区分，始终查库，不走缓存）
 async function works_tags(ctx, next) {
     try {
-        // 尝试从缓存获取
-        let cachedData = await cache.get(CACHE_KEYS.ALL_TAGS);
-        if (cachedData) {
+        const scope = ctx.query.scope === 'mine' ? 'mine' : 'public';
+        const tagsWhere = {
+            tags: {
+                [Op.not]: null,
+                [Op.ne]: '[]'
+            },
+            isDeleted: 0
+        };
+
+        const scoped = await applyWorksOwnerScope(tagsWhere, scope, ctx);
+        if (!scoped.ok) {
+            ctx.status = scoped.status;
             ctx.body = {
-                success: true,
-                data: cachedData
+                success: false,
+                message: scoped.body?.message || '请先登录',
+                data: { tags: [], counts: {} }
             };
             return;
         }
-        // 获取所有未删除作品的标签
-        const works = await Works.findAll({
+        Object.assign(tagsWhere, scoped.where);
+
+        const workRows = await Works.findAll({
             attributes: ['tags'],
-            where: {
-                tags: {
-                    [Op.not]: null,
-                    [Op.ne]: '[]'
-                },
-                isDeleted: 0
-            }
+            where: tagsWhere
         });
 
-        // 提取标签
-        const tagSet = extractTags(works);
-        
-        // 统计每个标签的使用次数
+        const tagSet = extractTags(workRows);
+
         const tagCounts = {};
         for (const tag of tagSet) {
-            // 尝试从缓存获取标签计数
-            // 尝试从缓存获取标签计数
-            const cacheKey = CACHE_KEYS.TAG_COUNT + tag;
-            let count = await cache.get(cacheKey);
-
-            if (count === null) {
-                count = await Works.count({
-                    where: {
-                        tags: {
-                            [Op.like]: `%${tag}%`
-                        },
-                        isDeleted: 0
+            tagCounts[tag] = await Works.count({
+                where: {
+                    ...tagsWhere,
+                    tags: {
+                        [Op.like]: `%${tag}%`
                     }
-                });
-                // 缓存标签计数，有效期1小时
-                await cache.set(cacheKey, count, 3600);
-            }
-            tagCounts[tag] = count;
+                }
+            });
         }
 
-        // 按使用次数排序
         const sortedTags = [...tagSet].sort((a, b) => tagCounts[b] - tagCounts[a]);
-        
-        const data = {
-            tags: sortedTags,
-            counts: tagCounts
-        };
-
-        // 缓存结果，有效期15分钟
-        await cache.set(CACHE_KEYS.ALL_TAGS, data, 900);
 
         ctx.body = {
             success: true,
-            data
+            data: {
+                tags: sortedTags,
+                counts: tagCounts
+            }
         };
     } catch (error) {
         console.error('Get works tags error:', error);
@@ -381,20 +382,16 @@ async function works_tags(ctx, next) {
     }
 }
 
-// 在作品更新、添加、删除时清除相关缓存
-async function clearWorksCache() {
-    try {
-        await cache.del(CACHE_KEYS.ALL_TAGS);
-        // 可以添加更多缓存清理逻辑
-    } catch (error) {
-        console.error('Clear works cache error:', error);
-    }
-}
-
 //POST /api/works/add
 async function works_add(ctx, next) {
     const workData = ctx.request.body;
-    
+    const uid = getAuthedUserId(ctx);
+    if (!uid) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '请先登录' };
+        return;
+    }
+
     try {
         // 处理 tags 数组
         const tags = Array.isArray(workData.tags) 
@@ -411,6 +408,7 @@ async function works_add(ctx, next) {
 
         // 创建新文章
         const works = await Works.create({
+            userId: uid,
             name: workData.name,
             description: workData.description,
             pictures: pictures,
@@ -424,8 +422,6 @@ async function works_add(ctx, next) {
             createdAt: new Date(),
             updatedAt: new Date()
         });
-        await clearWorksCache();
-
         ctx.body = {
             success: true,
             message: '作品发布成功',
@@ -456,6 +452,15 @@ async function works_edit(ctx, next) {
             ctx.body = {
                 success: false,
                 message: '作品不存在'
+            };
+            return;
+        }
+
+        if (!canManageWork(ctx, works)) {
+            ctx.status = 403;
+            ctx.body = {
+                success: false,
+                message: '无权修改该作品'
             };
             return;
         }
@@ -494,7 +499,6 @@ async function works_edit(ctx, next) {
         await Works.update(updateFields, {
             where: { id: id }
         });
-        await clearWorksCache();
         ctx.body = {
             success: true,
             message: '作品更新成功'
@@ -511,12 +515,26 @@ async function works_edit(ctx, next) {
 
 async function works_delete(ctx, next) {
     const id = parseInt(ctx.request.body.id);
+    const works = await Works.findByPk(id);
+    if (!works || works.isDeleted) {
+        ctx.status = 404;
+        ctx.body = { success: false, message: '作品不存在' };
+        return;
+    }
+    if (!canManageWork(ctx, works)) {
+        ctx.status = 403;
+        ctx.body = { success: false, message: '无权删除该作品' };
+        return;
+    }
     await Works.update({
         isDeleted: 1
     }, {
         where: { id: id }
     });
-    await clearWorksCache();
+    ctx.body = {
+        success: true,
+        message: '作品删除成功'
+    };
 }
 
 //GET /api/works/:id

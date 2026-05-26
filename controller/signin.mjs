@@ -43,6 +43,7 @@ async function login(ctx, next) {
                 code: 200,
                 data: {
                     user: user.name,
+                    id: user.id,
                     role: user.role || 'user',
                     token: `${token}`,
                 },

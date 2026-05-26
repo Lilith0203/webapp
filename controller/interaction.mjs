@@ -6,6 +6,22 @@ import {
     WORK_LIST_ATTRIBUTES,
     serializeWorkListRow
 } from '../util/worksListSerialize.mjs';
+import { applyWorksOwnerScope } from '../util/workOwnerScope.mjs';
+
+async function findWorksByIdsWithScope(itemIds, scope, ctx) {
+    const scoped = await applyWorksOwnerScope(
+        { id: { [Op.in]: itemIds }, isDeleted: 0 },
+        scope,
+        ctx
+    );
+    if (!scoped.ok) {
+        return [];
+    }
+    return Works.findAll({
+        where: scoped.where,
+        attributes: WORK_LIST_ATTRIBUTES
+    });
+}
 
 // POST /api/interaction/like - 点赞/取消点赞功能
 async function likeItem(ctx, next) {
@@ -423,6 +439,7 @@ async function getRecommendedItems(ctx, next) {
     let page = ctx.query.page ? parseInt(ctx.query.page) : 1;
     let type = ctx.query.type ? parseInt(ctx.query.type) : 2; // 默认为作品类型(2)
     let offset = (page - 1) * size;
+    const scope = ctx.query.scope === 'mine' ? 'mine' : 'public';
 
     try {
         // 从交互表中获取被推荐的项目ID列表
@@ -463,13 +480,7 @@ async function getRecommendedItems(ctx, next) {
 
         // 根据类型获取不同的数据
         if (type === 2) { // 作品类型
-            items = await Works.findAll({
-                where: {
-                    id: { [Op.in]: itemIds },
-                    isDeleted: 0
-                },
-                attributes: WORK_LIST_ATTRIBUTES
-            });
+            items = await findWorksByIdsWithScope(itemIds, scope, ctx);
 
             processedItems = items.map((item) => {
                 const itemData = serializeWorkListRow(item);
@@ -565,6 +576,7 @@ async function getTopItems(ctx, next) {
     let page = ctx.query.page ? parseInt(ctx.query.page) : 1;
     let type = ctx.query.type ? parseInt(ctx.query.type) : 2; // 默认为作品类型(2)
     let offset = (page - 1) * size;
+    const scope = ctx.query.scope === 'mine' ? 'mine' : 'public';
 
     try {
         // 从交互表中获取置顶的项目ID列表
@@ -605,13 +617,7 @@ async function getTopItems(ctx, next) {
 
         // 根据类型获取不同的数据
         if (type === 2) { // 作品类型
-            items = await Works.findAll({
-                where: {
-                    id: { [Op.in]: itemIds },
-                    isDeleted: 0
-                },
-                attributes: WORK_LIST_ATTRIBUTES
-            });
+            items = await findWorksByIdsWithScope(itemIds, scope, ctx);
 
             processedItems = items.map((item) => {
                 const itemData = serializeWorkListRow(item);
