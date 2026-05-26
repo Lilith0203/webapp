@@ -3,6 +3,11 @@ import { Works, WorksSet, WorksRelation } from '../orm.mjs';
 import { cleanOssUrls } from '../oss.mjs';
 import { Op } from 'sequelize';
 import cache from '../util/cache.mjs';
+import { getInteractionMapForItems } from './interaction.mjs';
+import {
+    WORK_LIST_ATTRIBUTES,
+    serializeWorkListRow
+} from '../util/worksListSerialize.mjs';
 
 function isAdmin(ctx) {
     return (ctx && ctx.state && ctx.state.user && ctx.state.user.role) === 'admin';
@@ -153,6 +158,20 @@ function applyVariantsToWorkRow(row) {
     return row;
 }
 
+function mergeInteractionIntoWorkRows(rows, interactionMap) {
+    return rows.map((row) => {
+        const interaction = interactionMap[row.id] || {};
+        return {
+            ...row,
+            likeCount: interaction.like || 0,
+            recommendWeight: interaction.weight || 0,
+            top: interaction.top || 0,
+            hasLiked: !!interaction.hasLiked,
+            hasRecommended: (interaction.weight || 0) > 0
+        };
+    });
+}
+
 function serializeVariantsForDb(variants) {
     const normalized = variants.map((v) => {
         const item = normalizeVariantItem(v);
@@ -260,38 +279,30 @@ async function works(ctx, next) {
     
     let {count, rows} = await Works.findAndCountAll({
         where,
+        attributes: WORK_LIST_ATTRIBUTES,
         limit: size,
         offset: offset,
         order: orderBy
     });
 
-    // 处理每一行的数据
-    rows = rows.map(item => {
-        const row = item.get({ plain: true });
-        // 解析 tags 字符串为数组
-        try {
-            row.tags = JSON.parse(row.tags || '[]');
-            row.pictures = JSON.parse(row.pictures || '[]');
-            row.materials = parseMaterials(row.materials || '[]');
-            row.video = row.video || '';
-            row.link = row.link || '';
-            applyVariantsToWorkRow(row);
-        } catch (e) {
-            row.tags = [];
-            row.pictures = [];
-            row.materials = [];
-            row.video = '';
-            row.link = '';
-            row.variants = [{ name: '', price: '', materials: [] }];
-        }
-        row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt);
-        row.updatedAt = utils.YYYYMMDDHHmmss(row.updatedAt);
-        return row;
-    });
+    rows = rows.map(serializeWorkListRow);
+
+    const includeInteraction =
+        ctx.query.includeInteraction === '1' || ctx.query.includeInteraction === 'true';
+    if (includeInteraction && rows.length > 0) {
+        const clientId = ctx.query.clientId || '';
+        const interactionMap = await getInteractionMapForItems(
+            2,
+            rows.map((r) => r.id),
+            clientId
+        );
+        rows = mergeInteractionIntoWorkRows(rows, interactionMap);
+    }
 
     ctx.body = {
         works: rows,
-        count: count
+        count: count,
+        interactionIncluded: includeInteraction
     }
 }
 

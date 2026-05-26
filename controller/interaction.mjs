@@ -2,6 +2,10 @@ import { Interaction, Works, Articles } from '../orm.mjs';
 import { Op } from 'sequelize';
 import cache from '../util/cache.mjs';
 import * as utils from 'utility';
+import {
+    WORK_LIST_ATTRIBUTES,
+    serializeWorkListRow
+} from '../util/worksListSerialize.mjs';
 
 // POST /api/interaction/like - 点赞/取消点赞功能
 async function likeItem(ctx, next) {
@@ -343,6 +347,44 @@ async function getInteraction(ctx, next) {
     }
 }
 
+/** 批量查询点赞/推荐/置顶（点赞状态并行读缓存，避免 N 次串行 await） */
+export async function getInteractionMapForItems(type, itemIds, clientId = '') {
+    const ids = [...new Set(itemIds.map((id) => parseInt(id, 10)).filter(Boolean))];
+    if (!type || ids.length === 0) return {};
+
+    const interactions = await Interaction.findAll({
+        where: {
+            type,
+            itemId: { [Op.in]: ids },
+            isDeleted: 0
+        }
+    });
+
+    const interactionMap = new Map();
+    interactions.forEach((item) => {
+        interactionMap.set(parseInt(item.itemId, 10), item);
+    });
+
+    let likedFlags = [];
+    if (clientId) {
+        likedFlags = await Promise.all(
+            ids.map((id) => cache.get(`like:${clientId}:${type}:${id}`))
+        );
+    }
+
+    const result = {};
+    ids.forEach((id, index) => {
+        const row = interactionMap.get(id);
+        result[id] = {
+            like: row ? row.like : 0,
+            weight: row ? row.weight : 0,
+            top: row ? (row.top || 0) : 0,
+            hasLiked: clientId ? !!likedFlags[index] : false
+        };
+    });
+    return result;
+}
+
 // POST /api/interaction/batch - 批量获取交互数据（减少前端 N+1 请求）
 async function getInteractionBatch(ctx, next) {
     const body = ctx.request.body || {};
@@ -360,35 +402,7 @@ async function getInteractionBatch(ctx, next) {
     }
 
     try {
-        const interactions = await Interaction.findAll({
-            where: {
-                type,
-                itemId: { [Op.in]: itemIds },
-                isDeleted: 0
-            }
-        });
-
-        const interactionMap = new Map();
-        interactions.forEach(item => {
-            interactionMap.set(parseInt(item.itemId), item);
-        });
-
-        const result = {};
-        for (const id of itemIds) {
-            let hasLiked = false;
-            if (clientId) {
-                const likeKey = `like:${clientId}:${type}:${id}`;
-                hasLiked = !!(await cache.get(likeKey));
-            }
-            const row = interactionMap.get(id);
-            result[id] = {
-                like: row ? row.like : 0,
-                weight: row ? row.weight : 0,
-                top: row ? (row.top || 0) : 0,
-                hasLiked
-            };
-        }
-
+        const result = await getInteractionMapForItems(type, itemIds, clientId);
         ctx.body = {
             success: true,
             data: result
@@ -449,43 +463,23 @@ async function getRecommendedItems(ctx, next) {
 
         // 根据类型获取不同的数据
         if (type === 2) { // 作品类型
-            // 获取作品详情
             items = await Works.findAll({
                 where: {
-                    id: {
-                        [Op.in]: itemIds
-                    },
+                    id: { [Op.in]: itemIds },
                     isDeleted: 0
-                }
+                },
+                attributes: WORK_LIST_ATTRIBUTES
             });
 
-            // 处理作品数据
-            processedItems = items.map(item => {
-                const itemData = item.get({ plain: true });
-                
-                // 解析 JSON 字符串为数组
-                try {
-                    itemData.tags = JSON.parse(itemData.tags || '[]');
-                    itemData.pictures = JSON.parse(itemData.pictures || '[]');
-                    itemData.materials = JSON.parse(itemData.materials || '[]');
-                } catch (e) {
-                    itemData.tags = [];
-                    itemData.pictures = [];
-                    itemData.materials = [];
-                }
-                
-                // 确保 link 字段有默认值
-                itemData.link = itemData.link || '';
-                
-                // 格式化日期
-                itemData.createdAt = utils.YYYYMMDDHHmmss(itemData.createdAt);
-                itemData.updatedAt = utils.YYYYMMDDHHmmss(itemData.updatedAt);
-                
-                // 添加权重信息和原始更新时间（用于排序）
-                const interaction = recommendedItems.find(rec => rec.itemId === itemData.id);
+            processedItems = items.map((item) => {
+                const itemData = serializeWorkListRow(item);
+                const interaction = recommendedItems.find(
+                    (rec) => rec.itemId === itemData.id
+                );
                 itemData.weight = interaction ? interaction.weight : 0;
-                itemData._interactionUpdatedAt = interaction ? interaction.updatedAt : new Date(0);
-                
+                itemData._interactionUpdatedAt = interaction
+                    ? interaction.updatedAt
+                    : new Date(0);
                 return itemData;
             });
         } else if (type === 1) { // 文章类型
@@ -611,44 +605,22 @@ async function getTopItems(ctx, next) {
 
         // 根据类型获取不同的数据
         if (type === 2) { // 作品类型
-            // 获取作品详情
             items = await Works.findAll({
                 where: {
-                    id: {
-                        [Op.in]: itemIds
-                    },
+                    id: { [Op.in]: itemIds },
                     isDeleted: 0
-                }
+                },
+                attributes: WORK_LIST_ATTRIBUTES
             });
 
-            // 处理作品数据
-            processedItems = items.map(item => {
-                const itemData = item.get({ plain: true });
-                
-                // 解析 JSON 字符串为数组
-                try {
-                    itemData.tags = JSON.parse(itemData.tags || '[]');
-                    itemData.pictures = JSON.parse(itemData.pictures || '[]');
-                    itemData.materials = JSON.parse(itemData.materials || '[]');
-                } catch (e) {
-                    itemData.tags = [];
-                    itemData.pictures = [];
-                    itemData.materials = [];
-                }
-                
-                // 确保 link 字段有默认值
-                itemData.link = itemData.link || '';
-                
-                // 格式化日期
-                itemData.createdAt = utils.YYYYMMDDHHmmss(itemData.createdAt);
-                itemData.updatedAt = utils.YYYYMMDDHHmmss(itemData.updatedAt);
-                
-                // 添加top值和权重信息
-                const interaction = topItems.find(rec => rec.itemId === itemData.id);
+            processedItems = items.map((item) => {
+                const itemData = serializeWorkListRow(item);
+                const interaction = topItems.find((rec) => rec.itemId === itemData.id);
                 itemData.top = interaction ? interaction.top : 0;
                 itemData.weight = interaction ? interaction.weight : 0;
-                itemData._interactionUpdatedAt = interaction ? interaction.updatedAt : new Date(0);
-                
+                itemData._interactionUpdatedAt = interaction
+                    ? interaction.updatedAt
+                    : new Date(0);
                 return itemData;
             });
         } else if (type === 1) { // 文章类型
@@ -691,14 +663,36 @@ async function getTopItems(ctx, next) {
         // 可以根据需要添加更多类型的处理...
 
         // 按照原始置顶顺序排序（先按top值，再按更新时间）
-        const sortedItems = itemIds.map(id => 
-            processedItems.find(item => item.id === id)
-        ).filter(Boolean); // 过滤掉可能不存在的项目
+        let sortedItems = itemIds
+            .map((id) => processedItems.find((item) => item.id === id))
+            .filter(Boolean);
 
         // 删除临时排序字段
-        sortedItems.forEach(item => {
+        sortedItems.forEach((item) => {
             delete item._interactionUpdatedAt;
         });
+
+        const includeInteraction =
+            ctx.query.includeInteraction === '1' || ctx.query.includeInteraction === 'true';
+        if (includeInteraction && sortedItems.length > 0) {
+            const clientId = ctx.query.clientId || '';
+            const map = await getInteractionMapForItems(
+                type,
+                sortedItems.map((item) => item.id),
+                clientId
+            );
+            sortedItems = sortedItems.map((item) => {
+                const i = map[item.id] || {};
+                return {
+                    ...item,
+                    likeCount: i.like || 0,
+                    recommendWeight: i.weight ?? item.weight ?? 0,
+                    top: i.top ?? item.top ?? 0,
+                    hasLiked: !!i.hasLiked,
+                    hasRecommended: (i.weight ?? item.weight ?? 0) > 0
+                };
+            });
+        }
 
         // 获取总置顶项目数量
         const totalCount = await Interaction.count({
@@ -716,7 +710,8 @@ async function getTopItems(ctx, next) {
             data: {
                 items: sortedItems,
                 count: totalCount,
-                type
+                type,
+                interactionIncluded: includeInteraction
             }
         };
     } catch (error) {
