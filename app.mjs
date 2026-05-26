@@ -35,6 +35,27 @@ const __dirname = dirname(__filename);
 //}
 //创建一个koa实例表示webapp本身
 const app = new Koa();
+
+const INDEX_HTML_PATH = join(__dirname, 'view', 'index.html');
+let indexHtmlCache = null;
+
+async function getIndexHtml() {
+  if (!indexHtmlCache) {
+    indexHtmlCache = await fs.readFile(INDEX_HTML_PATH);
+  }
+  return indexHtmlCache;
+}
+
+// 非 www 统一 301 到 www（与 canonical / 百度主站一致）
+app.use(async (ctx, next) => {
+  const host = (ctx.host || '').split(':')[0];
+  if (host === 'lilithu.com') {
+    ctx.status = 301;
+    ctx.redirect(`https://www.lilithu.com${ctx.url}`);
+    return;
+  }
+  await next();
+});
 //const session1 = session(session_config, app)
 //app.keys = session_signed_key;
 //app.use(session1)
@@ -56,19 +77,6 @@ await initDb();
 
 // 绑定db到app.context:
 app.context.db = await initDb();
-
-app.use(async (ctx, next) => {
-    await fs.readFile(join(__dirname, 'view', 'index.html'))
-    .then(content => {
-      ctx.type = 'html'
-      ctx.body = content
-    })
-    .catch(err => {
-      ctx.status = 500
-      ctx.body = 'Error loading index.html'
-    })//console.log(`Process ${ctx.request.method} ${ctx.request.url}...`);
-    await next();
-})
 
 //app.use(mount('/static', serve('static')));
 
@@ -220,6 +228,21 @@ app.use(async (ctx, next) => {
 
 //使用controller()
 app.use(await controller());
+
+// SPA 回退：仅当未命中静态文件且非 API 时返回 index.html
+app.use(async (ctx, next) => {
+  await next();
+  if (ctx.method !== 'GET' && ctx.method !== 'HEAD') return;
+  if (ctx.path.startsWith('/api')) return;
+  if (ctx.body != null) return;
+  try {
+    ctx.type = 'html';
+    ctx.body = await getIndexHtml();
+  } catch (err) {
+    ctx.status = 500;
+    ctx.body = 'Error loading index.html';
+  }
+});
 
 // 启动服务器
 async function startServer() {
