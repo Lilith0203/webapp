@@ -47,12 +47,18 @@ async function getIndexHtml() {
 }
 
 // 非 www 统一 301 到 www（与 canonical / 百度主站一致）
+// 注意：/api、/auth 不跳转，避免微信小程序 POST 跟随 301 失败（合法域名通常配置为 lilithu.com）
 app.use(async (ctx, next) => {
   const host = (ctx.host || '').split(':')[0];
   if (host === 'lilithu.com') {
-    ctx.status = 301;
-    ctx.redirect(`https://www.lilithu.com${ctx.url}`);
-    return;
+    const path = ctx.path || '';
+    const isApiRequest =
+      path.startsWith('/api') || path.startsWith('/auth/');
+    if (!isApiRequest) {
+      ctx.status = 301;
+      ctx.redirect(`https://www.lilithu.com${ctx.url}`);
+      return;
+    }
   }
   await next();
 });
