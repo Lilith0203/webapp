@@ -429,6 +429,17 @@ export const Comment = sequelize.define('Comment', {
         type: DataTypes.INTEGER,
         allowNull: true
     },
+    /** 被回复通知对象（登录用户 id）；有人回复该用户评论时写入 */
+    notifyUserId: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+    },
+    /** 通知对象是否已读：0 未读，1 已读 */
+    userRead: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 1
+    },
     isDeleted: {
         type: DataTypes.INTEGER,
         allowNull: false,

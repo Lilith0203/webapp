@@ -125,7 +125,15 @@ app.use(async (ctx, next) => {
     Array.isArray(ctx.request.body?.ids) &&
     ctx.request.body.ids.length > 0;
 
-  if (isOptionalAuthGetGrid || isOptionalAuthPostComment || isOptionalAuthPostMaterialIds) {
+  const isOptionalAuthGetItemComments =
+    ctx.method === 'GET' && /^\/api\/comments\/\d+$/.test(ctx.path);
+
+  if (
+    isOptionalAuthGetGrid ||
+    isOptionalAuthPostComment ||
+    isOptionalAuthPostMaterialIds ||
+    isOptionalAuthGetItemComments
+  ) {
     const header = (ctx.headers && (ctx.headers.authorization || ctx.headers.Authorization)) || '';
     const token = typeof header === 'string' && header.startsWith('Bearer ')
       ? header.slice('Bearer '.length).trim()
@@ -167,6 +175,8 @@ app.use(jwt({
         { path: '/api/user/profile', methods: ['GET'] },
         { path: '/api/user/profile/update', methods: ['POST'] },
         { path: '/api/user/my-comments', methods: ['GET'] },
+        { path: '/api/user/comment-notifications/count', methods: ['GET'] },
+        { path: '/api/user/comment-notifications/read', methods: ['POST'] },
         // 计划：仅允许登录用户访问自己的计划
         { path: '/api/plans', methods: ['GET'] },
         { path: '/api/plan/', methods: ['GET'] },

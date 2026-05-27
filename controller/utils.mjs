@@ -128,6 +128,43 @@ function isAdminUser(ctx) {
     return typeof role === 'string' && role.toLowerCase() === 'admin';
 }
 
+async function loadCommentNameMap(replyParentIds) {
+    const ids = [...new Set(replyParentIds.filter((id) => id > 0))];
+    if (!ids.length) return new Map();
+    const parents = await Comment.findAll({
+        where: { id: { [Op.in]: ids }, isDeleted: 0 },
+        attributes: ['id', 'name', 'userId']
+    });
+    return new Map(parents.map((p) => {
+        const row = p.get({ plain: true });
+        return [row.id, row];
+    }));
+}
+
+function applyReplyToMeta(rows, parentMap) {
+    return rows.map((row) => {
+        if (!row.reply || row.reply <= 0) return row;
+        const parent = parentMap.get(row.reply);
+        if (parent) {
+            row.replyToName = parent.name;
+            row.replyToUserId = parent.userId;
+        }
+        return row;
+    });
+}
+
+function applyUnreadReplyFlags(topLevelComments, uid) {
+    if (!uid) return;
+    topLevelComments.forEach((parent) => {
+        parent.hasUnreadReplies = (parent.replies || []).some(
+            (r) =>
+                r.notifyUserId != null &&
+                parseInt(r.notifyUserId, 10) === uid &&
+                Number(r.userRead) === 0
+        );
+    });
+}
+
 // POST /api/comment — 未登录仅可发顶级评论；回复必须登录
 async function addComment(ctx, next) {
     const commentStatus = await ConfigSetting.getConfig('comment');
@@ -197,6 +234,35 @@ async function addComment(ctx, next) {
             isApproved = 0;
         }
 
+        let adminReadVal = 0;
+        let notifyUserId = null;
+        let userReadVal = 1;
+
+        if (isLoggedIn && isAdminUser(ctx)) {
+            adminReadVal = 1;
+        }
+
+        if (isReply) {
+            const parent = await Comment.findByPk(replyParentId, {
+                attributes: ['id', 'name', 'userId']
+            });
+            if (parent) {
+                const targetUid =
+                    parent.userId != null && parent.userId !== ''
+                        ? parseInt(parent.userId, 10)
+                        : null;
+                if (
+                    targetUid != null &&
+                    !Number.isNaN(targetUid) &&
+                    targetUid > 0 &&
+                    (!isLoggedIn || targetUid !== uid)
+                ) {
+                    notifyUserId = targetUid;
+                    userReadVal = 0;
+                }
+            }
+        }
+
         const comment = await Comment.create({
             name: displayName,
             content,
@@ -205,7 +271,9 @@ async function addComment(ctx, next) {
             reply: isReply ? replyParentId : 0,
             userId: userIdVal,
             isApproved,
-            adminRead: 0,
+            adminRead: adminReadVal,
+            notifyUserId,
+            userRead: userReadVal,
             createdAt: new Date(),
             updatedAt: new Date()
         });
@@ -288,11 +356,15 @@ async function getComments(ctx, next) {
             });
 
             // 处理每一行的数据
-            const formattedComments = allComments.map(comment => {
+            let formattedComments = allComments.map(comment => {
                 const row = comment.get({ plain: true });
                 row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt);
                 return row;
             });
+            const parentMap = await loadCommentNameMap(
+                formattedComments.map((c) => c.reply)
+            );
+            formattedComments = applyReplyToMeta(formattedComments, parentMap);
 
             // 计算分页信息
             const totalPages = Math.ceil(totalCount / pageSize);
@@ -372,11 +444,16 @@ async function getComments(ctx, next) {
         });
 
         // 处理回复数据
-        const formattedReplies = allReplies.map(reply => {
+        let formattedReplies = allReplies.map(reply => {
             const row = reply.get({ plain: true });
             row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt);
             return row;
         });
+
+        const replyParentMap = await loadCommentNameMap(
+            formattedReplies.map((r) => r.reply)
+        );
+        formattedReplies = applyReplyToMeta(formattedReplies, replyParentMap);
 
         // 将所有回复关联到对应的顶级评论
         formattedReplies.forEach(reply => {
@@ -401,6 +478,9 @@ async function getComments(ctx, next) {
                 parentComment.replies.push(reply);
             }
         });
+
+        const viewerUid = getAuthedUserId(ctx);
+        applyUnreadReplyFlags(formattedTopLevelComments, viewerUid);
 
         // 计算分页信息
         const totalPages = Math.ceil(totalCount / pageSize);
@@ -437,7 +517,37 @@ async function getComments(ctx, next) {
     }
 }
 
-// GET /api/user/my-comments — 当前登录用户自己的评论（需 JWT）
+async function loadCommentIdMap(ids) {
+    const unique = [...new Set(ids.filter((id) => id > 0))];
+    if (!unique.length) return new Map();
+    const rows = await Comment.findAll({
+        where: { id: { [Op.in]: unique }, isDeleted: 0 },
+        attributes: ['id', 'name', 'content', 'userId', 'reply']
+    });
+    return new Map(rows.map((r) => {
+        const row = r.get({ plain: true });
+        return [row.id, row];
+    }));
+}
+
+function findMyAncestorComment(replyRow, uid, idMap) {
+    let pid = replyRow.reply;
+    let depth = 0;
+    while (pid && depth < 12) {
+        let parent = idMap.get(pid);
+        if (!parent) break;
+        const ownerId =
+            parent.userId != null && parent.userId !== ''
+                ? parseInt(parent.userId, 10)
+                : null;
+        if (ownerId === uid) return parent;
+        pid = parent.reply;
+        depth += 1;
+    }
+    return null;
+}
+
+// GET /api/user/my-comments — tab=mine 我发表的；tab=replies 别人回复我的（需 JWT）
 async function getMyComments(ctx, next) {
     const uid = getAuthedUserId(ctx);
     if (uid == null || Number.isNaN(uid) || uid <= 0) {
@@ -453,9 +563,18 @@ async function getMyComments(ctx, next) {
     const rawSize = parseInt(ctx.query.pageSize) || 20;
     const pageSize = Math.min(Math.max(rawSize, 1), 50);
     const offset = (page - 1) * pageSize;
+    const tab = ctx.query.tab === 'replies' ? 'replies' : 'mine';
 
     try {
-        const whereCondition = { isDeleted: 0, userId: uid };
+        const whereCondition =
+            tab === 'replies'
+                ? {
+                    isDeleted: 0,
+                    notifyUserId: uid,
+                    userId: { [Op.ne]: uid }
+                }
+                : { isDeleted: 0, userId: uid };
+
         const totalCount = await Comment.count({ where: whereCondition });
         const rows = await Comment.findAll({
             where: whereCondition,
@@ -464,11 +583,44 @@ async function getMyComments(ctx, next) {
             offset
         });
 
-        const comments = rows.map((comment) => {
+        let comments = rows.map((comment) => {
             const row = comment.get({ plain: true });
             row.createdAt = utils.YYYYMMDDHHmmss(row.createdAt);
+            row.listTab = tab;
             return row;
         });
+        const parentMap = await loadCommentNameMap(comments.map((c) => c.reply));
+        comments = applyReplyToMeta(comments, parentMap);
+
+        if (tab === 'replies') {
+            const idMap = await loadCommentIdMap(comments.map((c) => c.reply));
+            parentMap.forEach((v, k) => idMap.set(k, v));
+            let pending = [...new Set(comments.map((c) => c.reply).filter((id) => id > 0))];
+            let depth = 0;
+            while (pending.length && depth < 12) {
+                const toFetch = pending.filter((id) => !idMap.has(id));
+                if (toFetch.length) {
+                    const more = await loadCommentIdMap(toFetch);
+                    more.forEach((v, k) => idMap.set(k, v));
+                }
+                const next = [];
+                pending.forEach((id) => {
+                    const p = idMap.get(id);
+                    if (p && p.reply > 0) next.push(p.reply);
+                });
+                pending = [...new Set(next)];
+                depth += 1;
+            }
+            comments = comments.map((row) => {
+                const mine = findMyAncestorComment(row, uid, idMap);
+                const snippet = mine && mine.content
+                    ? String(mine.content).trim().slice(0, 120)
+                    : '';
+                row.myCommentSnippet = snippet;
+                row.isUnreadReply = Number(row.userRead) === 0;
+                return row;
+            });
+        }
 
         const totalPages = Math.ceil(totalCount / pageSize) || 1;
         const hasNextPage = page < totalPages;
@@ -493,6 +645,71 @@ async function getMyComments(ctx, next) {
             success: false,
             message: '获取评论失败'
         };
+    }
+}
+
+// GET /api/user/comment-notifications/count — 登录用户：被回复未读数；管理员：全站未读评论数
+async function getCommentNotificationCount(ctx, next) {
+    const uid = getAuthedUserId(ctx);
+    if (uid == null || Number.isNaN(uid) || uid <= 0) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '请先登录' };
+        return;
+    }
+
+    try {
+        let count;
+        if (isAdminUser(ctx)) {
+            count = await Comment.count({
+                where: { isDeleted: 0, adminRead: 0 }
+            });
+        } else {
+            count = await Comment.count({
+                where: {
+                    isDeleted: 0,
+                    notifyUserId: uid,
+                    userRead: 0
+                }
+            });
+        }
+        ctx.body = { success: true, count };
+    } catch (error) {
+        console.error('Get comment notification count error:', error);
+        ctx.status = 500;
+        ctx.body = { success: false, message: '获取通知失败' };
+    }
+}
+
+// POST /api/user/comment-notifications/read — 标记「回复我的」为已读（可选 type + itemId）
+async function markCommentNotificationsRead(ctx, next) {
+    const uid = getAuthedUserId(ctx);
+    if (uid == null || Number.isNaN(uid) || uid <= 0) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '请先登录' };
+        return;
+    }
+
+    const body = (ctx && ctx.request && ctx.request.body) || {};
+    const where = {
+        isDeleted: 0,
+        notifyUserId: uid,
+        userRead: 0
+    };
+    const type = parseInt(body.type, 10);
+    const itemId = parseInt(body.itemId, 10);
+    if (!Number.isNaN(type) && type > 0) where.type = type;
+    if (!Number.isNaN(itemId) && itemId > 0) where.itemId = itemId;
+
+    try {
+        await Comment.update(
+            { userRead: 1, updatedAt: new Date() },
+            { where }
+        );
+        ctx.body = { success: true };
+    } catch (error) {
+        console.error('Mark comment notifications read error:', error);
+        ctx.status = 500;
+        ctx.body = { success: false, message: '操作失败' };
     }
 }
 
@@ -597,6 +814,8 @@ export default {
     'GET /api/comments/:itemId': getComments,
     'GET /api/comments': getComments,
     'GET /api/user/my-comments': getMyComments,
+    'GET /api/user/comment-notifications/count': getCommentNotificationCount,
+    'POST /api/user/comment-notifications/read': markCommentNotificationsRead,
     'POST /api/comment': addComment,
     'POST /api/comment_delete': deleteComment,
     'POST /api/comment_approve': approveComment

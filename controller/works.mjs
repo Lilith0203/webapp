@@ -9,7 +9,8 @@ import {
 } from '../util/worksListSerialize.mjs';
 import {
     getAuthedUserId,
-    applyWorksOwnerScope
+    applyWorksOwnerScope,
+    getAdminUserIds
 } from '../util/workOwnerScope.mjs';
 
 function isAdmin(ctx) {
@@ -564,7 +565,11 @@ async function works_detail(ctx, next) {
             workData.variants = [{ name: '', price: '', materials: [] }];
         }
         workData.updatedAt = utils.YYYYMMDDHHmmss(workData.updatedAt);
-        
+        const adminIds = await getAdminUserIds();
+        const ownerId = parseInt(workData.userId, 10);
+        workData.ownerIsAdmin =
+            !Number.isNaN(ownerId) && adminIds.includes(ownerId);
+
         ctx.body = {
             works: workData
         }
