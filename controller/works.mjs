@@ -160,7 +160,8 @@ function applyVariantsToWorkRow(row) {
     row.variants = parseVariantsField(row);
     const primary = row.variants[0] || { name: '', price: '', materials: [] };
     row.price = primary.price === '' ? '' : primary.price;
-    row.materials = primary.materials;
+    // 材料仅存于 variants，响应中不再重复 materials 字段
+    delete row.materials;
     return row;
 }
 
@@ -187,10 +188,9 @@ function serializeVariantsForDb(variants) {
 }
 
 function primaryFromVariants(variants) {
-    const first = variants[0] || { name: '', price: 0, materials: [] };
+    const first = variants[0] || { name: '', price: 0 };
     return {
-        price: first.price === '' ? 0 : parseFloat(first.price) || 0,
-        materials: processMaterials(first.materials)
+        price: first.price === '' ? 0 : parseFloat(first.price) || 0
     };
 }
 
@@ -414,7 +414,7 @@ async function works_add(ctx, next) {
             description: workData.description,
             pictures: pictures,
             tags: tags,
-            materials: primary.materials,
+            materials: '[]',
             variants: serializeVariantsForDb(variants),
             video: workData.video || '',
             link: workData.link || '',
@@ -484,7 +484,7 @@ async function works_edit(ctx, next) {
             description: updateData.description,
             pictures: pictures,
             tags: tags,
-            materials: primary.materials,
+            materials: '[]',
             variants: serializeVariantsForDb(variants),
             video: updateData.video || '',
             link: updateData.link || '',
@@ -552,14 +552,12 @@ async function works_detail(ctx, next) {
         try {
             workData.tags = JSON.parse(workData.tags || '[]');
             workData.pictures = JSON.parse(workData.pictures || '[]');
-            workData.materials = parseMaterials(workData.materials || '[]');
             workData.video = workData.video || '';
             workData.link = workData.link || '';
             applyVariantsToWorkRow(workData);
         } catch (e) {
             workData.tags = [];
             workData.pictures = [];
-            workData.materials = [];
             workData.video = '';
             workData.link = '';
             workData.variants = [{ name: '', price: '', materials: [] }];
@@ -920,14 +918,12 @@ async function worksSet_works(ctx, next) {
             try {
                 workData.tags = JSON.parse(workData.tags || '[]');
                 workData.pictures = JSON.parse(workData.pictures || '[]');
-                workData.materials = parseMaterials(workData.materials || '[]');
                 workData.video = workData.video || '';
                 workData.link = workData.link || '';
                 applyVariantsToWorkRow(workData);
             } catch (e) {
                 workData.tags = [];
                 workData.pictures = [];
-                workData.materials = [];
                 workData.video = '';
                 workData.link = '';
                 workData.variants = [{ name: '', price: '', materials: [] }];
