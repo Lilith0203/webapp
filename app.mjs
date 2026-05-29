@@ -215,6 +215,7 @@ app.use(jwt({
         { path: '/api/story-relation/add', methods: ['POST'] },
         { path: '/api/story-relation/delete', methods: ['POST'] },
         { path: '/api/story-relation', methods: ['PUT'] },
+        { path: '/api/user-prefs', methods: ['GET', 'POST'] },
         { path: '/api/upload', methods: ['POST'] },
         { path: '/api/ocr', methods: ['POST'] },
         { path: '/api/ocr/quota', methods: ['GET'] },

@@ -77,6 +77,19 @@ class CacheManager {
             }
         }
     }
+
+    /** 持久化存储（无过期），用于用户偏好等 */
+    async setPersist(key, data) {
+        this.memoryCache.set(key, data, 0);
+
+        if (this.redisClient) {
+            try {
+                await this.redisClient.set(key, JSON.stringify(data));
+            } catch (error) {
+                console.error('Redis setPersist error:', error);
+            }
+        }
+    }
 }
 
 export default new CacheManager();
