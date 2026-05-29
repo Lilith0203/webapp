@@ -93,9 +93,29 @@ function normalizeStoryPrefs(raw) {
     };
 }
 
+function normalizePageViewMode(raw) {
+    return raw === 'private' ? 'private' : 'public';
+}
+
+function emptyWorksPrefs() {
+    return {
+        pageViewMode: 'public'
+    };
+}
+
+function normalizeWorksPrefs(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        return emptyWorksPrefs();
+    }
+    return {
+        pageViewMode: normalizePageViewMode(raw.pageViewMode)
+    };
+}
+
 function emptyUserPrefs() {
     return {
-        story: emptyStoryPrefs()
+        story: emptyStoryPrefs(),
+        works: emptyWorksPrefs()
     };
 }
 
@@ -128,7 +148,8 @@ async function readUserPrefs(userId) {
 
     return {
         ...data,
-        story: normalizeStoryPrefs(data.story)
+        story: normalizeStoryPrefs(data.story),
+        works: normalizeWorksPrefs(data.works)
     };
 }
 
@@ -140,6 +161,11 @@ async function getUserPrefs(ctx) {
 
         if (scope === 'story') {
             ctx.body = { success: true, data: prefs.story };
+            return;
+        }
+
+        if (scope === 'works') {
+            ctx.body = { success: true, data: prefs.works };
             return;
         }
 
@@ -175,13 +201,27 @@ async function saveUserPrefs(ctx) {
             next.story = story;
         }
 
-        // 预留：其它模块偏好按命名空间合并，如 body.works = { ... }
+        if (body.works !== undefined) {
+            const patch = body.works && typeof body.works === 'object' && !Array.isArray(body.works)
+                ? body.works
+                : {};
+            const works = { ...current.works };
+            if (patch.pageViewMode !== undefined) {
+                works.pageViewMode = normalizePageViewMode(patch.pageViewMode);
+            }
+            next.works = works;
+        }
 
         await cache.setPersist(prefsKey(userId), next);
 
         const scope = String(ctx.query?.scope || '').trim();
         if (scope === 'story') {
             ctx.body = { success: true, data: next.story };
+            return;
+        }
+
+        if (scope === 'works') {
+            ctx.body = { success: true, data: next.works };
             return;
         }
 
