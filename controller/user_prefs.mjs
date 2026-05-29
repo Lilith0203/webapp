@@ -99,15 +99,26 @@ function emptyUserPrefs() {
     };
 }
 
-async function readUserPrefs(userId) {
-    let data = await cache.get(prefsKey(userId));
-    if (!data || typeof data !== 'object' || Array.isArray(data)) {
-        data = {};
+function unwrapStoredPrefs(data) {
+    if (typeof data === 'string') {
+        try {
+            return unwrapStoredPrefs(JSON.parse(data));
+        } catch (_) {
+            return {};
+        }
     }
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        return {};
+    }
+    return data;
+}
+
+async function readUserPrefs(userId) {
+    let data = unwrapStoredPrefs(await cache.getPersist(prefsKey(userId)));
 
     // 兼容旧版 story_prefs:${userId} 键
     if (!data.story) {
-        const legacy = await cache.get(legacyStoryPrefsKey(userId));
+        const legacy = await cache.getPersist(legacyStoryPrefsKey(userId));
         if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)) {
             data = { ...data, story: normalizeStoryPrefs(legacy) };
             await cache.setPersist(prefsKey(userId), data);

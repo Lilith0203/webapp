@@ -25,11 +25,72 @@ class CacheManager {
         }
     }
 
+    parseStoredJson(raw) {
+        let data = JSON.parse(raw);
+        // 兼容 Redis 中被二次 stringify 的值
+        if (typeof data === 'string') {
+            const trimmed = data.trim();
+            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                try {
+                    data = JSON.parse(trimmed);
+                } catch (_) {
+                    /* keep string */
+                }
+            }
+        }
+        return data;
+    }
+
+    normalizeStoredObject(data) {
+        if (typeof data === 'string') {
+            const trimmed = data.trim();
+            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                try {
+                    return this.normalizeStoredObject(JSON.parse(trimmed));
+                } catch (_) {
+                    return null;
+                }
+            }
+            return null;
+        }
+        if (!data || typeof data !== 'object' || Array.isArray(data)) {
+            return null;
+        }
+        return data;
+    }
+
+    /** 持久化读取：以 Redis 为准，避免内存缓存与 Redis 不一致 */
+    async getPersist(key) {
+        if (this.redisClient) {
+            try {
+                const redisData = await this.redisClient.get(key);
+                if (redisData) {
+                    const data = this.normalizeStoredObject(this.parseStoredJson(redisData));
+                    if (data) {
+                        this.memoryCache.set(key, data, 0);
+                        return data;
+                    }
+                }
+                // Redis 无此键时清掉可能过期的内存副本
+                this.memoryCache.del(key);
+                return null;
+            } catch (error) {
+                console.error('Redis getPersist error:', error);
+            }
+        }
+
+        const data = this.memoryCache.get(key);
+        if (data !== undefined) {
+            return this.normalizeStoredObject(data);
+        }
+        return null;
+    }
+
     async get(key) {
         // 先从内存缓存获取
         let data = this.memoryCache.get(key);
         if (data !== undefined) {
-            return data;
+            return this.normalizeStoredObject(data);
         }
 
         // 如果启用了Redis，从Redis获取
@@ -37,10 +98,12 @@ class CacheManager {
             try {
                 const redisData = await this.redisClient.get(key);
                 if (redisData) {
-                    data = JSON.parse(redisData);
-                    // 同步到内存缓存
-                    this.memoryCache.set(key, data);
-                    return data;
+                    data = this.normalizeStoredObject(this.parseStoredJson(redisData));
+                    if (data) {
+                        // 同步到内存缓存
+                        this.memoryCache.set(key, data, 0);
+                        return data;
+                    }
                 }
             } catch (error) {
                 console.error('Redis get error:', error);
