@@ -250,9 +250,19 @@ async function works(ctx, next) {
         return;
     }
     where = scoped.where;
-    
-    // 如果有status筛选，添加status条件
-    if (status !== undefined && (status === 0 || status === 1)) {
+
+    // 公开列表不暴露未完成作品（含管理员草稿）
+    if (scope === 'public') {
+        if (status === 0) {
+            ctx.body = {
+                works: [],
+                count: 0,
+                interactionIncluded: false
+            };
+            return;
+        }
+        where.status = 1;
+    } else if (status !== undefined && (status === 0 || status === 1)) {
         where.status = status;
     }
     
@@ -567,6 +577,13 @@ async function works_detail(ctx, next) {
         const ownerId = parseInt(workData.userId, 10);
         workData.ownerIsAdmin =
             !Number.isNaN(ownerId) && adminIds.includes(ownerId);
+
+        const workStatus = parseInt(workData.status, 10);
+        if (workStatus === 0 && !canManageWork(ctx, works)) {
+            ctx.status = 404;
+            ctx.body = { message: '作品不存在' };
+            return;
+        }
 
         ctx.body = {
             works: workData

@@ -9,8 +9,12 @@ import {
 import { applyWorksOwnerScope } from '../util/workOwnerScope.mjs';
 
 async function findWorksByIdsWithScope(itemIds, scope, ctx) {
+    const baseWhere = { id: { [Op.in]: itemIds }, isDeleted: 0 };
+    if (scope !== 'mine') {
+        baseWhere.status = 1;
+    }
     const scoped = await applyWorksOwnerScope(
-        { id: { [Op.in]: itemIds }, isDeleted: 0 },
+        baseWhere,
         scope,
         ctx
     );

@@ -128,11 +128,15 @@ app.use(async (ctx, next) => {
   const isOptionalAuthGetItemComments =
     ctx.method === 'GET' && /^\/api\/comments\/\d+$/.test(ctx.path);
 
+  const isOptionalAuthGetWorkDetail =
+    ctx.method === 'GET' && /^\/api\/works\/\d+$/.test(ctx.path);
+
   if (
     isOptionalAuthGetGrid ||
     isOptionalAuthPostComment ||
     isOptionalAuthPostMaterialIds ||
-    isOptionalAuthGetItemComments
+    isOptionalAuthGetItemComments ||
+    isOptionalAuthGetWorkDetail
   ) {
     const header = (ctx.headers && (ctx.headers.authorization || ctx.headers.Authorization)) || '';
     const token = typeof header === 'string' && header.startsWith('Bearer ')
