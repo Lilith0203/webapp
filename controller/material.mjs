@@ -153,10 +153,86 @@ async function updateMaterialType(ctx, next) {
     }
 }
 
+function buildSearchFilterParts(filters) {
+    if (!filters || typeof filters !== 'object') return [];
+
+    const parts = [];
+
+    if (Array.isArray(filters.ids) && filters.ids.length > 0) {
+        const ids = filters.ids
+            .map((id) => parseInt(id, 10))
+            .filter((id) => Number.isFinite(id) && id > 0);
+        if (ids.length) {
+            parts.push({ id: { [Op.in]: ids } });
+        }
+    }
+
+    const addLike = (field, value) => {
+        const text = String(value ?? '').trim();
+        if (!text) return;
+        parts.push(Sequelize.where(
+            Sequelize.fn('LOWER', Sequelize.col(field)),
+            { [Op.like]: `%${text.toLowerCase()}%` }
+        ));
+    };
+
+    addLike('name', filters.name);
+    addLike('substance', filters.substance);
+    addLike('shape', filters.shape);
+    addLike('color', filters.color);
+    addLike('shop', filters.shop);
+    addLike('size', filters.size);
+
+    if (Array.isArray(filters.type) && filters.type.length > 0) {
+        const typeIds = filters.type
+            .map((id) => parseInt(id, 10))
+            .filter((id) => Number.isFinite(id) && id > 0);
+        if (typeIds.length) {
+            parts.push({ type: { [Op.in]: typeIds } });
+        }
+    }
+
+    return parts;
+}
+
+function buildOrderCondition(sortBy, sortOrder, idOrderList) {
+    const validSortFields = ['name', 'type', 'substance', 'size', 'price', 'stock', 'shop', 'updatedAt', 'createdAt'];
+    const validSortOrders = ['ASC', 'DESC'];
+    const order = validSortOrders.includes(sortOrder?.toUpperCase()) ? sortOrder.toUpperCase() : 'ASC';
+
+    if (Array.isArray(idOrderList) && idOrderList.length > 1) {
+        return [[Sequelize.literal(`FIELD(id, ${idOrderList.join(',')})`), 'ASC']];
+    }
+
+    if (sortBy === 'stock') {
+        return [
+            [Sequelize.literal(
+                "CASE WHEN stock IS NULL OR TRIM(stock) = '' THEN 2 WHEN stock IN ('0','无') THEN 0 ELSE 1 END"
+            ), order],
+            ['stock', order]
+        ];
+    }
+
+    if (sortBy && validSortFields.includes(sortBy)) {
+        return [[sortBy, order]];
+    }
+
+    return [['name', 'ASC']];
+}
+
 //POST /api/material
 async function material(ctx, next) {
     // 获取请求体中的参数
-    const { ids, showAll, sortBy, sortOrder } = ctx.request.body;
+    const {
+        ids,
+        showAll,
+        sortBy,
+        sortOrder,
+        page,
+        pageSize,
+        fetchAll,
+        filters
+    } = ctx.request.body;
     
     // 构建查询条件
     // 当通过 ids 批量查询材料（如作品详情展示）时：允许未登录访问，并且不按 userId 过滤
@@ -183,27 +259,61 @@ async function material(ctx, next) {
     
     // 默认隐藏“明确缺货”的材料（stock 为 '0' 或 '无'），但保留空值/未知库存
     // 除非 showAll 为 true 或者指定了 ids
+    const andParts = [];
     if (!showAll && !isIdsQuery) {
-        whereCondition[Op.and] = [
-            Sequelize.literal(
-                "(stock IS NULL OR stock = '' OR (stock <> '0' AND stock <> '无'))"
-            )
-        ];
+        andParts.push(Sequelize.literal(
+            "(stock IS NULL OR stock = '' OR (stock <> '0' AND stock <> '无'))"
+        ));
     }
-    
-    // 构建排序条件
-    let orderCondition = [['name', 'ASC']]; // 默认按名称倒序
-    
-    if (sortBy) {
-        const validSortFields = ['name', 'type', 'substance', 'size', 'price', 'stock', 'shop', 'updatedAt', 'createdAt'];
-        const validSortOrders = ['ASC', 'DESC'];
-        
-        if (validSortFields.includes(sortBy)) {
-            const order = validSortOrders.includes(sortOrder?.toUpperCase()) ? sortOrder.toUpperCase() : 'ASC';
-            orderCondition = [[sortBy, order]];
+    if (!isIdsQuery) {
+        andParts.push(...buildSearchFilterParts(filters));
+    }
+    if (andParts.length) {
+        whereCondition[Op.and] = andParts;
+    }
+
+    const filterIds = !isIdsQuery && Array.isArray(filters?.ids)
+        ? filters.ids.map((id) => parseInt(id, 10)).filter((id) => Number.isFinite(id) && id > 0)
+        : [];
+    const orderCondition = buildOrderCondition(sortBy, sortOrder, filterIds);
+
+    const parsedPage = parseInt(page, 10);
+    const parsedPageSize = Math.min(Math.max(parseInt(pageSize, 10) || 50, 1), 200);
+    const isPagedList = !isIdsQuery && Number.isFinite(parsedPage) && parsedPage > 0;
+    const isFetchAll = !isIdsQuery && fetchAll === true;
+
+    if (isFetchAll || isPagedList) {
+        const queryOptions = {
+            where: whereCondition,
+            order: orderCondition,
+            attributes: MATERIAL_LIST_ATTRIBUTES,
+            raw: true
+        };
+
+        if (isFetchAll) {
+            const materials = await Material.findAll(queryOptions);
+            ctx.body = {
+                materials,
+                total: materials.length
+            };
+            return;
         }
+
+        const { count, rows } = await Material.findAndCountAll({
+            ...queryOptions,
+            limit: parsedPageSize,
+            offset: (parsedPage - 1) * parsedPageSize
+        });
+
+        ctx.body = {
+            materials: rows,
+            total: count,
+            page: parsedPage,
+            pageSize: parsedPageSize
+        };
+        return;
     }
-    
+
     const materials = await Material.findAll({
         where: whereCondition,
         order: orderCondition,
