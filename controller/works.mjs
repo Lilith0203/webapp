@@ -101,7 +101,8 @@ function normalizeVariantItem(item) {
     return {
         name: String(item?.name ?? '').trim(),
         price,
-        materials: JSON.parse(materials)
+        materials: JSON.parse(materials),
+        picture: String(item?.picture ?? '').trim()
     };
 }
 
