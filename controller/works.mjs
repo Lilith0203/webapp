@@ -25,6 +25,22 @@ function canManageWork(ctx, work) {
     return parseInt(work.userId, 10) === uid;
 }
 
+/** 合集管理仅管理员；返回管理员 userId，失败时已写入响应 */
+function requireSetAdmin(ctx) {
+    const uid = getAuthedUserId(ctx);
+    if (!uid) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '请先登录' };
+        return null;
+    }
+    if (!isAdmin(ctx)) {
+        ctx.status = 403;
+        ctx.body = { success: false, message: '需要管理员权限' };
+        return null;
+    }
+    return uid;
+}
+
 /**
  * 从JSON字符串数组中提取所有标签
  * @param {Array} items 包含tags字段的数组
@@ -599,6 +615,9 @@ async function works_detail(ctx, next) {
 
 // POST /api/works-set/add - 创建合集
 async function worksSet_add(ctx, next) {
+    const adminUid = requireSetAdmin(ctx);
+    if (!adminUid) return;
+
     const setData = ctx.request.body;
     
     try {
@@ -611,6 +630,7 @@ async function worksSet_add(ctx, next) {
         const cover = cleanOssUrls(setData.cover);
         
         const worksSet = await WorksSet.create({
+            userId: adminUid,
             name: setData.name,
             description: setData.description || '',
             cover: cover || '',
@@ -638,6 +658,8 @@ async function worksSet_add(ctx, next) {
 
 // POST /api/works-set/edit - 编辑合集
 async function worksSet_edit(ctx, next) {
+    if (!requireSetAdmin(ctx)) return;
+
     const updateData = ctx.request.body;
     const id = parseInt(updateData.id);
     
@@ -686,6 +708,8 @@ async function worksSet_edit(ctx, next) {
 
 // POST /api/works-set/delete - 删除合集
 async function worksSet_delete(ctx, next) {
+    if (!requireSetAdmin(ctx)) return;
+
     const id = parseInt(ctx.request.body.id);
     
     try {
