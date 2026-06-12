@@ -63,14 +63,12 @@ async function saveGrid(ctx, next) {
             : ctx.request.body.cells; 
 
     let id = 0;
-    if(ctx.request.body.id) {
-        id = parseInt(ctx.request.body.id);
+    let forked = false;
+    if (ctx.request.body.id) {
+        id = parseInt(ctx.request.body.id, 10);
         try {
             const grid = await GridData.findOne({
-                where: {
-                    id,
-                    ...(isAdmin(ctx) ? {} : { userId })
-                }
+                where: { id, isDeleted: 0 }
             });
             if (!grid) {
                 ctx.status = 404;
@@ -79,28 +77,36 @@ async function saveGrid(ctx, next) {
                     message: '格子图不存在'
                 };
                 return;
-            } else {
+            }
+
+            if (parseInt(grid.userId, 10) === parseInt(userId, 10)) {
                 await GridData.update({
                     size: size,
                     cells: cells,
                     updatedAt: new Date()
                 }, {
-                    where: {
-                        id: id,
-                        ...(isAdmin(ctx) ? {} : { userId })
-                    }
+                    where: { id, userId }
                 });
+            } else {
+                const newGrid = await GridData.create({
+                    userId,
+                    name: name,
+                    size: size,
+                    cells: cells
+                });
+                id = newGrid.id;
+                forked = true;
             }
         } catch (e) {
-            ctx.status = 404;
+            ctx.status = 500;
             ctx.body = {
                 success: false,
-                message: '格子图更新失败'
+                message: '格子图保存失败'
             };
             return;
         }
     } else {
-        const grid =await GridData.create({
+        const grid = await GridData.create({
             userId,
             name: name,
             size: size,
@@ -110,7 +116,8 @@ async function saveGrid(ctx, next) {
     }
     ctx.body = {
         id: id,
-        success: true
+        success: true,
+        forked
     }
 }
 

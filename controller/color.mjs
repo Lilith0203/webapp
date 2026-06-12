@@ -1,13 +1,26 @@
 import { Color } from '../orm.mjs'
 import { Op } from 'sequelize'
+import { getAdminUserIds } from '../util/workOwnerScope.mjs'
+
+const USER_COLOR_CATEGORIES = [3, 4]
 
 function getAuthedUserId(ctx) {
     const id = ctx && ctx.state && ctx.state.user && ctx.state.user.id;
-    return typeof id === 'number' || typeof id === 'string' ? parseInt(id) : null;
+    return typeof id === 'number' || typeof id === 'string' ? parseInt(id, 10) : null;
 }
 
 function isAdmin(ctx) {
     return (ctx && ctx.state && ctx.state.user && ctx.state.user.role) === 'admin';
+}
+
+function requireAuth(ctx) {
+    const userId = getAuthedUserId(ctx);
+    if (!userId) {
+        ctx.status = 401;
+        ctx.body = { success: false, message: '未授权，请登录' };
+        return null;
+    }
+    return userId;
 }
 
 function requireAdmin(ctx) {
@@ -19,16 +32,32 @@ function requireAdmin(ctx) {
     return true;
 }
 
+function parseCategory(category) {
+    const cat = parseInt(category, 10);
+    return Number.isFinite(cat) ? cat : null;
+}
+
+function canUserManageCategory(ctx, category) {
+    if (isAdmin(ctx)) return true;
+    const cat = parseCategory(category);
+    return !!getAuthedUserId(ctx) && USER_COLOR_CATEGORIES.includes(cat);
+}
+
+function ownerWhere(ctx, userId) {
+    return isAdmin(ctx) ? {} : { userId };
+}
+
 // POST /api/color/add - 添加颜色
 async function addColor(ctx, next) {
-    const userId = getAuthedUserId(ctx);
-    if (!userId) {
-        ctx.status = 401;
-        ctx.body = { success: false, message: '未授权，请登录' };
+    const userId = requireAuth(ctx);
+    if (!userId) return;
+    const { category, set, name, code } = ctx.request.body;
+
+    if (!canUserManageCategory(ctx, category)) {
+        ctx.status = 403;
+        ctx.body = { success: false, message: '无权限：仅可管理格子图颜色与收藏颜色' };
         return;
     }
-    if (!requireAdmin(ctx)) return;
-    const { category, set, name, code } = ctx.request.body;
 
     // 验证输入
     if (!category || !code) {
@@ -89,17 +118,41 @@ async function addColor(ctx, next) {
 // GET /api/colors - 获取颜色列表
 async function getColors(ctx, next) {
     try {
-        // 获取查询参数
-        const { category } = ctx.query;
+        const { category, mine } = ctx.query;
+        const userId = getAuthedUserId(ctx);
+        const whereCondition = { isDeleted: 0 };
 
-        // 构建查询条件
-        const whereCondition = {
-            isDeleted: 0
-        };
+        const mineOnly = mine === '1' || mine === 'true';
 
-        // 如果指定了类别，添加到查询条件中
-        if (category !== undefined) {
-            whereCondition.category = category;
+        if (mineOnly) {
+            if (!userId) {
+                ctx.body = { success: true, data: [] };
+                return;
+            }
+            whereCondition.userId = userId;
+            if (category !== undefined) {
+                whereCondition.category = parseCategory(category);
+            } else {
+                whereCondition.category = { [Op.in]: USER_COLOR_CATEGORIES };
+            }
+        } else if (!isAdmin(ctx)) {
+            const cat = category !== undefined ? parseCategory(category) : null;
+            if (cat === 3 || cat === 4) {
+                if (!userId) {
+                    ctx.body = { success: true, data: [] };
+                    return;
+                }
+                whereCondition.userId = userId;
+                whereCondition.category = cat;
+            } else {
+                const adminIds = await getAdminUserIds();
+                whereCondition.userId = { [Op.in]: adminIds.length ? adminIds : [-1] };
+                if (cat !== null) {
+                    whereCondition.category = cat;
+                }
+            }
+        } else if (category !== undefined) {
+            whereCondition.category = parseCategory(category);
         }
 
         const colors = await Color.findAll({
@@ -137,13 +190,8 @@ async function getColors(ctx, next) {
 
 // POST /api/color/delete - 删除颜色
 async function deleteColor(ctx, next) {
-    const userId = getAuthedUserId(ctx);
-    if (!userId) {
-        ctx.status = 401;
-        ctx.body = { success: false, message: '未授权，请登录' };
-        return;
-    }
-    if (!requireAdmin(ctx)) return;
+    const userId = requireAuth(ctx);
+    if (!userId) return;
     const { id } = ctx.request.body;
 
     if (!id) {
@@ -156,11 +204,9 @@ async function deleteColor(ctx, next) {
     }
 
     try {
-        // 检查颜色是否存在
         const color = await Color.findOne({
             where: {
                 id: id,
-                ...(isAdmin(ctx) ? {} : { userId }),
                 isDeleted: 0
             }
         });
@@ -171,6 +217,18 @@ async function deleteColor(ctx, next) {
                 success: false,
                 message: '颜色不存在或已被删除'
             };
+            return;
+        }
+
+        if (!canUserManageCategory(ctx, color.category)) {
+            ctx.status = 403;
+            ctx.body = { success: false, message: '无权限操作该颜色' };
+            return;
+        }
+
+        if (!isAdmin(ctx) && parseInt(color.userId, 10) !== userId) {
+            ctx.status = 403;
+            ctx.body = { success: false, message: '无权限：只能删除自己的颜色' };
             return;
         }
 
@@ -204,13 +262,8 @@ async function deleteColor(ctx, next) {
 
 // POST /api/color/edit - 编辑颜色
 async function editColor(ctx, next) {
-    const userId = getAuthedUserId(ctx);
-    if (!userId) {
-        ctx.status = 401;
-        ctx.body = { success: false, message: '未授权，请登录' };
-        return;
-    }
-    if (!requireAdmin(ctx)) return;
+    const userId = requireAuth(ctx);
+    if (!userId) return;
     const { id, set, name, code } = ctx.request.body;
 
     // 验证输入
@@ -238,7 +291,6 @@ async function editColor(ctx, next) {
         const existingColor = await Color.findOne({
             where: {
                 id: id,
-                ...(isAdmin(ctx) ? {} : { userId }),
                 isDeleted: 0
             }
         });
@@ -252,7 +304,18 @@ async function editColor(ctx, next) {
             return;
         }
 
-        // 更新颜色
+        if (!canUserManageCategory(ctx, existingColor.category)) {
+            ctx.status = 403;
+            ctx.body = { success: false, message: '无权限操作该颜色' };
+            return;
+        }
+
+        if (!isAdmin(ctx) && parseInt(existingColor.userId, 10) !== userId) {
+            ctx.status = 403;
+            ctx.body = { success: false, message: '无权限：只能编辑自己的颜色' };
+            return;
+        }
+
         await Color.update(
             {
                 set,
@@ -263,7 +326,7 @@ async function editColor(ctx, next) {
             {
                 where: {
                     id: id,
-                    ...(isAdmin(ctx) ? {} : { userId })
+                    ...ownerWhere(ctx, userId)
                 }
             }
         );
@@ -300,14 +363,15 @@ async function editColor(ctx, next) {
 
 // POST /api/color/update-set - 更新颜色合集
 async function updateColorSet(ctx, next) {
-    const userId = getAuthedUserId(ctx);
-    if (!userId) {
-        ctx.status = 401;
-        ctx.body = { success: false, message: '未授权，请登录' };
+    const userId = requireAuth(ctx);
+    if (!userId) return;
+    const { category, oldSet, colors } = ctx.request.body;
+
+    if (!canUserManageCategory(ctx, category)) {
+        ctx.status = 403;
+        ctx.body = { success: false, message: '无权限：仅可管理格子图颜色与收藏颜色' };
         return;
     }
-    if (!requireAdmin(ctx)) return;
-    const { category, oldSet, colors } = ctx.request.body;
 
     // 验证输入
     if (!category || !oldSet || !colors || !Array.isArray(colors)) {
@@ -344,12 +408,12 @@ async function updateColorSet(ctx, next) {
             return;
         }
 
-        // 获取原合集中的所有颜色
         const existingColors = await Color.findAll({
             where: {
                 category,
                 set: oldSet,
-                isDeleted: 0
+                isDeleted: 0,
+                ...ownerWhere(ctx, userId)
             }
         });
 
@@ -379,7 +443,6 @@ async function updateColorSet(ctx, next) {
         // 批量更新或创建颜色
         for (const color of colors) {
             if (color.id) {
-                // 更新已存在的颜色
                 await Color.update(
                     {
                         category,
@@ -391,7 +454,8 @@ async function updateColorSet(ctx, next) {
                     {
                         where: {
                             id: color.id,
-                            isDeleted: 0
+                            isDeleted: 0,
+                            ...ownerWhere(ctx, userId)
                         }
                     }
                 );
@@ -414,8 +478,9 @@ async function updateColorSet(ctx, next) {
         const updatedColors = await Color.findAll({
             where: {
                 category,
-                set: colors[0].set, // 使用新的合集名称
-                isDeleted: 0
+                set: colors[0].set,
+                isDeleted: 0,
+                ...ownerWhere(ctx, userId)
             },
             order: [['updatedAt', 'DESC']]
         });
@@ -445,14 +510,15 @@ async function updateColorSet(ctx, next) {
 
 // POST /api/color/delete-set - 删除颜色合集
 async function deleteColorSet(ctx, next) {
-    const userId = getAuthedUserId(ctx);
-    if (!userId) {
-        ctx.status = 401;
-        ctx.body = { success: false, message: '未授权，请登录' };
+    const userId = requireAuth(ctx);
+    if (!userId) return;
+    const { category, set } = ctx.request.body;
+
+    if (!canUserManageCategory(ctx, category)) {
+        ctx.status = 403;
+        ctx.body = { success: false, message: '无权限：仅可管理格子图颜色与收藏颜色' };
         return;
     }
-    if (!requireAdmin(ctx)) return;
-    const { category, set } = ctx.request.body;
 
     // 验证输入
     if (!category || !set) {
@@ -470,7 +536,8 @@ async function deleteColorSet(ctx, next) {
             where: {
                 category,
                 set,
-                isDeleted: 0
+                isDeleted: 0,
+                ...ownerWhere(ctx, userId)
             }
         });
 
@@ -483,7 +550,6 @@ async function deleteColorSet(ctx, next) {
             return;
         }
 
-        // 软删除整个合集的颜色
         await Color.update(
             {
                 isDeleted: 1,
@@ -493,7 +559,8 @@ async function deleteColorSet(ctx, next) {
                 where: {
                     category,
                     set,
-                    isDeleted: 0
+                    isDeleted: 0,
+                    ...ownerWhere(ctx, userId)
                 }
             }
         );
