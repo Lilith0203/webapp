@@ -131,12 +131,16 @@ app.use(async (ctx, next) => {
   const isOptionalAuthGetWorkDetail =
     ctx.method === 'GET' && /^\/api\/works\/\d+$/.test(ctx.path);
 
+  const isOptionalAuthGetColors =
+    ctx.method === 'GET' && ctx.path === '/api/colors';
+
   if (
     isOptionalAuthGetGrid ||
     isOptionalAuthPostComment ||
     isOptionalAuthPostMaterialIds ||
     isOptionalAuthGetItemComments ||
-    isOptionalAuthGetWorkDetail
+    isOptionalAuthGetWorkDetail ||
+    isOptionalAuthGetColors
   ) {
     const header = (ctx.headers && (ctx.headers.authorization || ctx.headers.Authorization)) || '';
     const token = typeof header === 'string' && header.startsWith('Bearer ')

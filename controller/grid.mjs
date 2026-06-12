@@ -1,43 +1,31 @@
-import { GridData, User } from '../orm.mjs';
-import { Op } from 'sequelize';
+import { GridData } from '../orm.mjs';
 
 function getAuthedUserId(ctx) {
     const id = ctx && ctx.state && ctx.state.user && ctx.state.user.id;
-    return typeof id === 'number' || typeof id === 'string' ? parseInt(id) : null;
+    return typeof id === 'number' || typeof id === 'string' ? parseInt(id, 10) : null;
 }
 
-function isAdmin(ctx) {
-    return (ctx && ctx.state && ctx.state.user && ctx.state.user.role) === 'admin';
-}
+const MIN_GRID_SIZE = 1;
+const MAX_GRID_SIZE = 80;
 
-let adminUserIdCache = { value: null, ts: 0 };
-async function getAdminUserId() {
-    const now = Date.now();
-    if (adminUserIdCache.value && now - adminUserIdCache.ts < 60_000) {
-        return adminUserIdCache.value;
+function normalizeGridSize(raw) {
+    const size = parseInt(raw, 10);
+    if (Number.isNaN(size) || size < MIN_GRID_SIZE || size > MAX_GRID_SIZE) {
+        return null;
     }
-    const admin = await User.findOne({
-        where: { role: 'admin' },
-        order: [['id', 'ASC']]
-    });
-    adminUserIdCache = { value: admin ? admin.id : null, ts: now };
-    return adminUserIdCache.value;
+    return size;
 }
 
 //GET /api/grid/list
 async function getGridList(ctx, next) {
     const userId = getAuthedUserId(ctx);
-    const adminUserId = await getAdminUserId();
-    if (!adminUserId && !userId) {
+    if (!userId) {
         ctx.body = { gridlist: [] };
         return;
     }
-    const visibleUserIds = isAdmin(ctx)
-        ? [userId] // 管理员只看自己的（管理员的）
-        : (userId ? [userId, adminUserId].filter(Boolean) : [adminUserId]); // 游客仅看管理员
-    let gridlist = await GridData.findAll({
+    const gridlist = await GridData.findAll({
         where: {
-            userId: { [Op.in]: visibleUserIds },
+            userId,
             isDeleted: 0
         },
         order: [['updatedAt', 'DESC']]
@@ -56,7 +44,12 @@ async function saveGrid(ctx, next) {
         return;
     }
     let name = ctx.request.body.name || 'temp';
-    let size = parseInt(ctx.request.body.size);
+    let size = normalizeGridSize(ctx.request.body.size);
+    if (size == null) {
+        ctx.status = 400;
+        ctx.body = { success: false, message: `格子尺寸须在 ${MIN_GRID_SIZE}～${MAX_GRID_SIZE} 之间` };
+        return;
+    }
 
     let cells = Array.isArray(ctx.request.body.cells) 
             ? JSON.stringify(ctx.request.body.cells)  // 如果是数组，转换为 JSON 字符串
@@ -124,20 +117,17 @@ async function saveGrid(ctx, next) {
 //GET /api/grid/:id
 async function getGrid(ctx, next) {
     const userId = getAuthedUserId(ctx);
-    const adminUserId = await getAdminUserId();
-    if (!adminUserId && !userId) {
+    if (!userId) {
         ctx.status = 404;
         ctx.body = { message: '格子图不存在' };
         return;
     }
-    const visibleUserIds = isAdmin(ctx)
-        ? [userId]
-        : (userId ? [userId, adminUserId].filter(Boolean) : [adminUserId]);
-    let id = parseInt(ctx.params.id);
-    let grid = await GridData.findOne({
+    const id = parseInt(ctx.params.id, 10);
+    const grid = await GridData.findOne({
         where: {
-            id: id,
-            userId: { [Op.in]: visibleUserIds }
+            id,
+            userId,
+            isDeleted: 0
         }
     });
     if (grid) {
