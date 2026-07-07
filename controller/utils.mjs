@@ -2,7 +2,7 @@ import * as utils from 'utility';
 import { uploadToOSS, generateSignedUrl } from '../oss.mjs';
 import multer from '@koa/multer';
 import config from 'config'
-import { Comment} from '../orm.mjs';
+import { Comment, User } from '../orm.mjs';
 import ConfigSetting from '../util/config.mjs';
 import { Op } from 'sequelize';
 
@@ -141,16 +141,77 @@ async function loadCommentNameMap(replyParentIds) {
     }));
 }
 
-function applyReplyToMeta(rows, parentMap) {
+async function loadUserNameMap(userIds) {
+    const ids = [...new Set(
+        userIds
+            .map((id) => parseInt(id, 10))
+            .filter((id) => !Number.isNaN(id) && id > 0)
+    )];
+    if (!ids.length) return new Map();
+    const users = await User.findAll({
+        where: { id: { [Op.in]: ids } },
+        attributes: ['id', 'name']
+    });
+    return new Map(users.map((u) => {
+        const row = u.get({ plain: true });
+        return [row.id, row.name];
+    }));
+}
+
+function applyReplyToMeta(rows, parentMap, userNameMap = new Map()) {
     return rows.map((row) => {
         if (!row.reply || row.reply <= 0) return row;
         const parent = parentMap.get(row.reply);
         if (parent) {
-            row.replyToName = parent.name;
             row.replyToUserId = parent.userId;
+            const parentUid =
+                parent.userId != null && parent.userId !== ''
+                    ? parseInt(parent.userId, 10)
+                    : null;
+            if (parentUid != null && !Number.isNaN(parentUid) && userNameMap.has(parentUid)) {
+                row.replyToName = userNameMap.get(parentUid);
+            } else {
+                row.replyToName = parent.name;
+            }
         }
         return row;
     });
+}
+
+async function enrichCommentsWithCurrentUsernames(rows, parentMap = null) {
+    if (!rows.length) return rows;
+    const userIds = [];
+    const pushId = (id) => {
+        if (id == null || id === '') return;
+        const n = parseInt(id, 10);
+        if (!Number.isNaN(n) && n > 0) userIds.push(n);
+    };
+    rows.forEach((row) => pushId(row.userId));
+    if (parentMap) parentMap.forEach((parent) => pushId(parent.userId));
+    const userNameMap = await loadUserNameMap(userIds);
+    rows.forEach((row) => {
+        const uid =
+            row.userId != null && row.userId !== ''
+                ? parseInt(row.userId, 10)
+                : null;
+        if (uid != null && !Number.isNaN(uid) && userNameMap.has(uid)) {
+            row.name = userNameMap.get(uid);
+        }
+    });
+    if (parentMap) {
+        applyReplyToMeta(rows, parentMap, userNameMap);
+    } else {
+        rows.forEach((row) => {
+            const rid =
+                row.replyToUserId != null && row.replyToUserId !== ''
+                    ? parseInt(row.replyToUserId, 10)
+                    : null;
+            if (rid != null && !Number.isNaN(rid) && userNameMap.has(rid)) {
+                row.replyToName = userNameMap.get(rid);
+            }
+        });
+    }
+    return rows;
 }
 
 function applyUnreadReplyFlags(topLevelComments, uid) {
@@ -365,6 +426,7 @@ async function getComments(ctx, next) {
                 formattedComments.map((c) => c.reply)
             );
             formattedComments = applyReplyToMeta(formattedComments, parentMap);
+            await enrichCommentsWithCurrentUsernames(formattedComments, parentMap);
 
             // 计算分页信息
             const totalPages = Math.ceil(totalCount / pageSize);
@@ -454,6 +516,10 @@ async function getComments(ctx, next) {
             formattedReplies.map((r) => r.reply)
         );
         formattedReplies = applyReplyToMeta(formattedReplies, replyParentMap);
+        await enrichCommentsWithCurrentUsernames(
+            [...formattedTopLevelComments, ...formattedReplies],
+            replyParentMap
+        );
 
         // 将所有回复关联到对应的顶级评论
         formattedReplies.forEach(reply => {
@@ -591,6 +657,7 @@ async function getMyComments(ctx, next) {
         });
         const parentMap = await loadCommentNameMap(comments.map((c) => c.reply));
         comments = applyReplyToMeta(comments, parentMap);
+        await enrichCommentsWithCurrentUsernames(comments, parentMap);
 
         if (tab === 'replies') {
             const idMap = await loadCommentIdMap(comments.map((c) => c.reply));
