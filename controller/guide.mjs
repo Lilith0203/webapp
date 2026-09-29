@@ -26,6 +26,7 @@ export async function getGuides(ctx) {
         const size = parseInt(ctx.query.size) || 8;
         const category = ctx.query.category || '';
         const search = ctx.query.search || '';
+        const sort = ctx.query.sort === 'createdAt' ? 'createdAt' : 'updatedAt';
         
         const offset = (page - 1) * size;
         
@@ -47,7 +48,7 @@ export async function getGuides(ctx) {
         
         const { count, rows } = await Guide.findAndCountAll({
             where: whereClause,
-            order: [['createdAt', 'DESC'], ['id', 'DESC']],
+            order: [[sort, 'DESC'], ['id', 'DESC']],
             limit: size,
             offset: offset
         });
