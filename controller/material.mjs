@@ -213,6 +213,17 @@ function buildOrderCondition(sortBy, sortOrder, idOrderList) {
         ];
     }
 
+    // 尺寸多为「2mm / 2.5mm」这类字符串，按前缀数值排序，避免 2.5 排在 2 前面
+    if (sortBy === 'size') {
+        return [
+            [Sequelize.literal(
+                "CASE WHEN size IS NULL OR TRIM(size) = '' THEN 1 ELSE 0 END"
+            ), 'ASC'],
+            [Sequelize.literal('CAST(size AS DECIMAL(12,4))'), order],
+            ['size', order]
+        ];
+    }
+
     if (sortBy && validSortFields.includes(sortBy)) {
         return [[sortBy, order]];
     }
